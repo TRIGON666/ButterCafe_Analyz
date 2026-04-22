@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}ButterCafe - История заказов{% endblock %}
+
+{% block content %}
+<div class="container-main profile-page">
+    <div class="lk-tabs">
+        <a href="{% url 'cafe:profile' %}" class="lk-tab">Профиль</a>
+        <a href="{% url 'cafe:order_history' %}" class="lk-tab active">История заказов</a>
+    </div>
+
+    <div class="lk-card">
+        <h1 class="lk-title">Мои заказы</h1>
+
+        {% if orders %}
+            <div class="orders-list">
+                {% for order in orders %}
+                    <div class="order-history-item">
+                        <div class="order-history-top">
+                            <div class="order-history-id">Заказ #{{ order.id }}</div>
+                            <div class="order-history-date">{{ order.created_at|date:"d.m.Y H:i" }}</div>
+                        </div>
+                        <div class="order-history-meta">
+                            <span>Сумма: <b>{{ order.total|floatformat:0 }} р.</b></span>
+                            <span>{{ order.get_delivery_type_display }}</span>
+                        </div>
+                        <ul class="order-history-products">
+                            {% for item in order.items.all %}
+                                <li>{{ item.product.name }} x {{ item.quantity }}</li>
+                            {% endfor %}
+                        </ul>
+                        <form method="post" action="{% url 'cafe:repeat_order' order.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="order-btn repeat-order-btn">Перезаказать</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="lk-empty">У вас пока нет заказов.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

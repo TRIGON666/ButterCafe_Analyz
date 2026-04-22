@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %}ButterCafe - Выход{% endblock %}
+
+{% block content %}
+<div class="container-main auth-page">
+    <div class="auth-card">
+        <h1 class="auth-title">Выход</h1>
+        <p class="auth-note auth-note-center">Вы уверены, что хотите выйти из аккаунта?</p>
+        <form method="post" action="{% url 'account_logout' %}" class="auth-form">
+            {% csrf_token %}
+            {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+            {% endif %}
+            <div class="auth-actions-row">
+                <button type="submit" class="order-btn auth-btn">Выйти</button>
+                <a href="{% url 'cafe:profile' %}" class="auth-ghost-btn">Отмена</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

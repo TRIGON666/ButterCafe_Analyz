@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}ButterCafe - Регистрация{% endblock %}
+
+{% block content %}
+<div class="container-main auth-page">
+    <div class="auth-card">
+        <h1 class="auth-title">Регистрация</h1>
+        <form method="post" action="{% url 'account_signup' %}" class="auth-form">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="auth-errors">
+                    {% for error in form.non_field_errors %}
+                        <p class="auth-error-item">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="auth-grid">
+                {% for field in form %}
+                    <div class="auth-field-row">
+                        <label for="{{ field.id_for_label }}" class="auth-field-label">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <p class="auth-help">{{ field.help_text|safe }}</p>
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="auth-field-errors">
+                                {% for error in field.errors %}
+                                    <p class="auth-error-item">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+            {% endif %}
+            <button type="submit" class="order-btn auth-btn">Создать аккаунт</button>
+        </form>
+        <p class="auth-note">Уже есть аккаунт? <a href="{% url 'account_login' %}">Войти</a></p>
+    </div>
+</div>
+{% endblock %}

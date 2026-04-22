@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}ButterCafe - Личный кабинет{% endblock %}
+
+{% block content %}
+<div class="container-main profile-page">
+    <div class="lk-tabs">
+        <a href="{% url 'cafe:profile' %}" class="lk-tab active">Профиль</a>
+        <a href="{% url 'cafe:order_history' %}" class="lk-tab">История заказов</a>
+    </div>
+
+    <div class="lk-card">
+        <h1 class="lk-title">Личный кабинет</h1>
+        <form method="post" class="lk-form">
+            {% csrf_token %}
+            <label class="lk-label">
+                Имя
+                <input type="text" name="name" value="{{ request.user.first_name }}" class="lk-input" required>
+            </label>
+            <label class="lk-label">
+                Телефон
+                <input type="text" name="phone" value="{{ profile_obj.phone }}" class="lk-input" required>
+            </label>
+            <label class="lk-label">
+                Email
+                <input type="email" name="email" value="{{ request.user.email }}" class="lk-input" required>
+            </label>
+            <label class="lk-label">
+                Адрес доставки по умолчанию
+                <input type="text" name="default_address" value="{{ profile_obj.default_address }}" class="lk-input">
+            </label>
+            <button type="submit" class="order-btn lk-save-btn">Сохранить</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

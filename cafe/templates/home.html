@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ButterCafe - Главная{% endblock %}
+
+{% block content %}
+<section class="main-hero">
+    <img class="hero-bg" src="{% static 'images/main-bg.jpg' %}" alt="Круассаны">
+    <div class="hero-text">
+        <h1>Тёплый круассан.<br>Горячий кофе.<br>Идеальное утро.</h1>
+        <a href="{% url 'cafe:menu' %}" class="order-btn">Сделать заказ</a>
+    </div>
+</section>
+
+<section class="why-us">
+    <h2>Почему мы?</h2>
+    <div class="why-content">
+        <div class="why-text">
+            Каждый день, ещё до рассвета, мы печём свежие круассаны из натурального теста на настоящем норвежском масле — чтобы вы почувствовали, как пахнет доброе утро.<br>
+            <b>— Свежее — значит сегодня.</b> Мы не храним выпечку «на потом». Всё готовится утром, для утра.<br>
+            <b>— Чистый состав.</b> Только мука, масло, забота — и никакой химии.<br>
+            <b>— Чуть больше, чем классика.</b> Мы любим эксперименты: новые начинки, неожиданные вкусы — чтобы каждое утро было особенным.<br>
+            <br>
+            <b>Утро — это настроение. Мы печём, чтобы оно было хорошим.</b>
+        </div>
+        <div class="why-img">
+            <img src="{% static 'images/cruis.jpg' %}" alt="Круассаны и варенье">
+        </div>
+    </div>
+</section>
+{% endblock %} 

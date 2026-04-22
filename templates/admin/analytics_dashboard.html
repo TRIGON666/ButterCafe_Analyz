@@ -1,0 +1,621 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}Аналитика | ButterCafe Admin{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  :root {
+    --cafe-primary: #b1856c;
+    --cafe-primary-dark: #6c2a17;
+    --cafe-lighter: #d4a574;
+    --cafe-soft: #f0e2d2;
+  }
+
+  #main-content, #content {
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    min-height: 100vh;
+  }
+
+  .analytics-header {
+    background: linear-gradient(135deg, var(--cafe-primary-dark) 0%, var(--cafe-primary) 100%);
+    color: #fff;
+    padding: 30px 20px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    box-shadow: 0 4px 20px rgba(108, 42, 23, 0.15);
+  }
+
+  .analytics-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .analytics-header p {
+    margin: 0;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .analytics-period {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+
+  .action-btn {
+    background: #fff;
+    color: var(--cafe-primary-dark) !important;
+    border: 2px solid var(--cafe-primary);
+    border-radius: 8px;
+    padding: 12px 24px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .action-btn:hover {
+    background: var(--cafe-primary);
+    color: #fff !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(177, 133, 108, 0.3);
+  }
+
+  .action-btn.primary {
+    background: var(--cafe-primary);
+    color: #fff !important;
+    border-color: var(--cafe-primary);
+  }
+
+  .action-btn.primary:hover {
+    background: var(--cafe-primary-dark);
+    border-color: var(--cafe-primary-dark);
+  }
+
+  .metrics-section {
+    margin-bottom: 40px;
+  }
+
+  .metrics-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--cafe-primary-dark);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  .metric-card {
+    background: #fff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 25px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--cafe-primary), var(--cafe-lighter));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+
+  .metric-card:hover {
+    border-color: var(--cafe-primary);
+    box-shadow: 0 8px 24px rgba(177, 133, 108, 0.12);
+    transform: translateY(-4px);
+  }
+
+  .metric-card:hover::before {
+    transform: scaleX(1);
+  }
+
+  .metric-icon {
+    font-size: 28px;
+    margin-bottom: 10px;
+  }
+
+  .metric-title {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 8px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .metric-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--cafe-primary-dark);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .metric-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  .charts-section {
+    margin-top: 40px;
+  }
+
+  .charts-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--cafe-primary-dark);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+
+  .chart-card {
+    background: #fff !important;
+    border: 2px solid #e5e7eb !important;
+    border-radius: 12px !important;
+    padding: 25px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: all 0.3s ease !important;
+  }
+
+  .chart-card:hover {
+    border-color: var(--cafe-primary) !important;
+    box-shadow: 0 8px 24px rgba(177, 133, 108, 0.12) !important;
+  }
+
+  .chart-card.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .chart-title {
+    margin: 0 0 20px 0 !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    color: var(--cafe-primary-dark) !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 320px;
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  @media (max-width: 1200px) {
+    .charts-grid {
+      grid-template-columns: 1fr;
+    }
+    .chart-card.full-width {
+      grid-column: 1;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .analytics-header {
+      padding: 20px;
+    }
+
+    .analytics-header h1 {
+      font-size: 24px;
+    }
+
+    .metrics-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .action-buttons {
+      flex-direction: column;
+    }
+
+    .action-btn {
+      justify-content: center;
+    }
+
+    .chart-wrap {
+      height: 250px;
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9ca3af;
+  }
+
+  .empty-state svg {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+    opacity: 0.5;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-header">
+  <h1>📊 Аналитика ButterCafe</h1>
+  <p>Обзор ключевых метрик и показателей</p>
+  <div class="analytics-period">
+    📅 {{ subtitle }}
+  </div>
+</div>
+
+<div class="action-buttons">
+  <a class="action-btn primary" href="{% url 'admin:index' %}">← Вернуться в админку</a>
+  <a class="action-btn" href="{% url 'admin_analytics_dashboard_pdf' %}">📥 Скачать PDF отчет</a>
+</div>
+
+<!-- KPI METRICS -->
+<div class="metrics-section">
+  <div class="metrics-title">💰 Ключевые показатели</div>
+  <div class="analytics-grid">
+    <div class="metric-card">
+      <div class="metric-icon">💵</div>
+      <div class="metric-title">Выручка за период</div>
+      <div class="metric-value">{{ total_revenue|floatformat:0|add:"" }}</div>
+      <div class="metric-subtitle">₽</div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon">📦</div>
+      <div class="metric-title">Количество заказов</div>
+      <div class="metric-value">{{ total_orders }}</div>
+      <div class="metric-subtitle">заказов</div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon">🎯</div>
+      <div class="metric-title">Средний чек</div>
+      <div class="metric-value">{{ avg_check|floatformat:2 }}</div>
+      <div class="metric-subtitle">₽ на заказ</div>
+    </div>
+  </div>
+</div>
+
+<!-- CHARTS -->
+<div class="charts-section">
+  <div class="charts-title">📈 Графики и тренды</div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h2 class="chart-title">💵 Выручка по дням</h2>
+      <div class="chart-wrap"><canvas id="revenueChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--cafe-primary);"></div>
+          <span>Выручка</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h2 class="chart-title">📦 Заказы по дням</h2>
+      <div class="chart-wrap"><canvas id="ordersChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--cafe-lighter);"></div>
+          <span>Количество</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card full-width">
+      <h2 class="chart-title">🏆 Топ товаров по количеству продаж</h2>
+      <div class="chart-wrap"><canvas id="productsChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--cafe-primary-dark);"></div>
+          <span>Количество</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h2 class="chart-title">🎯 Распределение событий</h2>
+      <div class="chart-wrap"><canvas id="eventsChart"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <h2 class="chart-title">⏰ Часы пик заказов</h2>
+      <div class="chart-wrap"><canvas id="hourlyChart"></canvas></div>
+      <div class="chart-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--cafe-primary-dark);"></div>
+          <span>Заказы</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Форматирование числ с разделителями
+  function formatNumber(num, decimals = 0) {
+    return new Intl.NumberFormat('ru-RU', {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals
+    }).format(num);
+  }
+
+  // Форматирование валюты
+  function formatCurrency(num) {
+    return formatNumber(num, 2) + ' ₽';
+  }
+
+  // Применяем форматирование к метрикам
+  document.addEventListener('DOMContentLoaded', function() {
+    const revenueValue = parseFloat(document.querySelector('.metric-card:nth-child(1) .metric-value').textContent);
+    const ordersValue = parseInt(document.querySelector('.metric-card:nth-child(2) .metric-value').textContent);
+    const avgCheckValue = parseFloat(document.querySelector('.metric-card:nth-child(3) .metric-value').textContent);
+
+    document.querySelector('.metric-card:nth-child(1) .metric-value').textContent = formatNumber(revenueValue);
+    document.querySelector('.metric-card:nth-child(2) .metric-value').textContent = formatNumber(ordersValue);
+    document.querySelector('.metric-card:nth-child(3) .metric-value').textContent = formatNumber(avgCheckValue, 2);
+  });
+
+  // Данные
+  const dailyLabels = {{ daily_labels|safe }};
+  const dailyRevenue = {{ daily_revenue|safe }};
+  const dailyOrders = {{ daily_orders|safe }};
+  const topProductLabels = {{ top_product_labels|safe }};
+  const topProductValues = {{ top_product_values|safe }};
+  const eventLabels = {{ event_labels|safe }};
+  const eventValues = {{ event_values|safe }};
+  const hourlyLabels = {{ hourly_labels|safe }};
+  const hourlyValues = {{ hourly_values|safe }};
+
+  // Цвета ButterCafe
+  const cafeColors = {
+    primary: '#b1856c',
+    dark: '#6c2a17',
+    light: '#d4a574',
+    soft: '#f0e2d2',
+    lighter: '#d4a574',
+    lightest: '#e5cfc1'
+  };
+
+  // Общие опции для графиков
+  const defaultOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: {
+          color: '#6b7280',
+          font: { size: 12, weight: '500' },
+          padding: 15,
+          usePointStyle: true
+        }
+      },
+      tooltip: {
+        backgroundColor: 'rgba(108, 42, 23, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: cafeColors.primary,
+        borderWidth: 1,
+        padding: 12,
+        titleFont: { weight: 'bold' },
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) label += ': ';
+            if (context.parsed.y !== null) {
+              label += formatNumber(context.parsed.y, 0);
+            }
+            return label;
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        ticks: {
+          color: '#9ca3af',
+          font: { size: 12 },
+          callback: function(value) {
+            return formatNumber(value, 0);
+          }
+        },
+        grid: { color: 'rgba(229, 231, 235, 0.5)', drawBorder: false }
+      },
+      x: {
+        ticks: { color: '#9ca3af', font: { size: 12 } },
+        grid: { color: 'rgba(229, 231, 235, 0.3)', drawBorder: false }
+      }
+    }
+  };
+
+  // График выручки
+  new Chart(document.getElementById('revenueChart'), {
+    type: 'line',
+    data: {
+      labels: dailyLabels,
+      datasets: [{
+        label: 'Выручка, ₽',
+        data: dailyRevenue,
+        borderColor: cafeColors.primary,
+        backgroundColor: 'rgba(177, 133, 108, 0.08)',
+        fill: true,
+        tension: 0.4,
+        borderWidth: 3,
+        pointBackgroundColor: cafeColors.primary,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        segment: { borderDash: [5, 5] }
+      }]
+    },
+    options: { ...defaultOptions }
+  });
+
+  // График заказов
+  new Chart(document.getElementById('ordersChart'), {
+    type: 'bar',
+    data: {
+      labels: dailyLabels,
+      datasets: [{
+        label: 'Количество заказов',
+        data: dailyOrders,
+        backgroundColor: cafeColors.light,
+        borderRadius: 8,
+        borderSkipped: false,
+        hoverBackgroundColor: cafeColors.primary
+      }]
+    },
+    options: { ...defaultOptions }
+  });
+
+  // График топ товаров
+  new Chart(document.getElementById('productsChart'), {
+    type: 'bar',
+    data: {
+      labels: topProductLabels,
+      datasets: [{
+        label: 'Количество продаж',
+        data: topProductValues,
+        backgroundColor: cafeColors.dark,
+        borderRadius: 8,
+        borderSkipped: false,
+        hoverBackgroundColor: cafeColors.primary
+      }]
+    },
+    options: {
+      ...defaultOptions,
+      indexAxis: 'y',
+      scales: {
+        ...defaultOptions.scales,
+        x: { ...defaultOptions.scales.x, ticks: { color: '#9ca3af' } }
+      }
+    }
+  });
+
+  // График событий (пончик)
+  new Chart(document.getElementById('eventsChart'), {
+    type: 'doughnut',
+    data: {
+      labels: eventLabels,
+      datasets: [{
+        data: eventValues,
+        backgroundColor: [
+          cafeColors.primary,
+          cafeColors.dark,
+          cafeColors.light,
+          cafeColors.soft,
+          cafeColors.lightest
+        ],
+        borderColor: '#fff',
+        borderWidth: 2,
+        hoverOffset: 10
+      }]
+    },
+    options: {
+      ...defaultOptions,
+      scales: {},
+      plugins: {
+        ...defaultOptions.plugins,
+        tooltip: {
+          ...defaultOptions.plugins.tooltip,
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.parsed || 0;
+              return label + ': ' + formatNumber(value, 0);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // График часов пик
+  new Chart(document.getElementById('hourlyChart'), {
+    type: 'line',
+    data: {
+      labels: hourlyLabels,
+      datasets: [{
+        label: 'Заказы по часам',
+        data: hourlyValues,
+        borderColor: cafeColors.dark,
+        backgroundColor: 'rgba(108, 42, 23, 0.08)',
+        fill: true,
+        tension: 0.4,
+        borderWidth: 3,
+        pointBackgroundColor: cafeColors.dark,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        pointHoverRadius: 7
+      }]
+    },
+    options: { ...defaultOptions }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}ButterCafe - Корзина{% endblock %}
+
+{% block content %}
+<div class="container-main">
+    <h1 style="text-align: center; margin-bottom: 24px; color: #6C2A17; font-size: 32px;">Корзина</h1>
+
+    {% if cart_items %}
+    <div style="display: grid; grid-template-columns: 1fr 320px; gap: 24px; max-width: 1000px; margin: 0 auto;" class="cart-page-grid">
+        <div>
+            {% for item in cart_items %}
+            <div class="cart">
+                <div class="card" style="display: grid; grid-template-columns: 100px 1fr; gap: 16px; padding: 16px;">
+                    {% if item.product.image %}
+                    <img src="{{ item.product.image.url }}" alt="{{ item.product.name }}" class="cart-item-image" style="width: 100px; height: 100px; border-radius: 12px;">
+                    {% endif %}
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+                            <div>
+                                <h5 style="color: #6C2A17; font-weight: 600; margin: 0 0 4px 0;">{{ item.product.name }}</h5>
+                                <p style="color: #6C2A17; font-size: 14px; margin: 0; line-height: 1.4;">{{ item.product.description|truncatewords:15 }}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="color: #B1856C; font-weight: 600; font-size: 18px; margin: 0;">{{ item.total_price }} ₽</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <form method="post" action="{% url 'cafe:update_cart_item' item.id %}" style="display: flex; gap: 8px; align-items: center;">
+                                {% csrf_token %}
+                                <input type="number" name="quantity" value="{{ item.quantity }}" min="1" style="width: 60px; padding: 6px 8px; border: 1px solid #d8c7b1; border-radius: 8px; font-size: 14px;">
+                                <button type="submit" class="btn" style="padding: 0 14px; min-height: 36px; font-size: 14px;">Обновить</button>
+                            </form>
+                            <form method="post" action="{% url 'cafe:remove_from_cart' item.id %}">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger" style="padding: 0 14px; min-height: 36px; font-size: 14px;">Удалить</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="cart">
+            <div class="card" style="padding: 20px;">
+                <h5 style="color: #6C2A17; font-weight: 600; margin: 0 0 16px 0;">Итого</h5>
+                <p style="color: #B1856C; font-weight: 700; font-size: 24px; margin: 0 0 20px 0;">{{ total_price }} ₽</p>
+                <button class="btn" id="openOrderModal" style="width: 100%; padding: 12px 0; font-size: 16px;">Оформить заказ</button>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px 20px;">
+        <p style="color: #6C2A17; font-size: 18px; margin-bottom: 20px;">Ваша корзина пуста</p>
+        <a href="{% url 'cafe:menu' %}" class="btn">Перейти в меню</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

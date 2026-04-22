@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}ButterCafe - Профиль администратора{% endblock %}
+
+{% block content %}
+<div class="container-main profile-page">
+    <div class="lk-tabs">
+        <a href="{% url 'cafe:admin_profile' %}" class="lk-tab active">Профиль администратора</a>
+        <a href="{% url 'admin:index' %}" class="lk-tab">Админка</a>
+        <a href="{% url 'admin_analytics_dashboard' %}" class="lk-tab">Аналитика</a>
+    </div>
+
+    <div class="lk-card admin-profile-card">
+        <h1 class="lk-title">Панель администратора</h1>
+        <p class="admin-profile-subtitle">Быстрый доступ к ключевым действиям и разделам управления проектом.</p>
+
+        <div class="admin-actions-grid">
+            <a href="{% url 'admin:index' %}" class="admin-action-link">
+                <div class="admin-action-title">Открыть Django Admin</div>
+                <div class="admin-action-text">Управление товарами, заказами, пользователями и событиями.</div>
+            </a>
+
+            <a href="{% url 'admin_analytics_dashboard' %}" class="admin-action-link">
+                <div class="admin-action-title">Открыть диаграммы</div>
+                <div class="admin-action-text">Дашборд с выручкой, заказами, событиями и топ-товарами.</div>
+            </a>
+
+            <a href="{% url 'admin_analytics_dashboard_pdf' %}" class="admin-action-link">
+                <div class="admin-action-title">Скачать PDF отчет</div>
+                <div class="admin-action-text">Скачивает аналитический отчет в формате PDF.</div>
+            </a>
+
+            <form method="post" class="admin-action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="export_daily_analytics">
+                <button type="submit" class="order-btn admin-action-btn">Сделать экспорт аналитики</button>
+                <div class="admin-action-text">Создает orders.csv, orders.json и events.csv за прошлый день.</div>
+            </form>
+
+            <form method="post" class="admin-action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="generate_daily_report">
+                <button type="submit" class="order-btn admin-action-btn">Отправить ежедневный отчет</button>
+                <div class="admin-action-text">Формирует и отправляет отчет владельцу на email.</div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

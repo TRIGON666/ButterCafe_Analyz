@@ -1,0 +1,20 @@
+<div class="modal-product-inner">
+    <div class="modal-product-img-block">
+        {% if product.image %}
+        <img src="{{ product.image.url }}" alt="{{ product.name }}" class="modal-product-img">
+        {% endif %}
+    </div>
+    <div class="modal-product-info">
+        <h2 class="modal-product-title">{{ product.name }}</h2>
+        <div class="modal-product-desc">{{ product.description }}</div>
+        <div class="modal-product-price">{{ product.price|floatformat:0 }} р.</div>
+        <div class="modal-product-nutrition">
+            <div class="nutrition-row"><span>Калорийность:</span> <b>{{ product.calories|default:'—' }} ккал</b></div>
+            <div class="nutrition-row"><span>Белки:</span> <b>{{ product.proteins|default:'—' }} г</b></div>
+            <div class="nutrition-row"><span>Жиры:</span> <b>{{ product.fats|default:'—' }} г</b></div>
+            <div class="nutrition-row"><span>Углеводы:</span> <b>{{ product.carbs|default:'—' }} г</b></div>
+        </div>
+        <button class="order-btn add-to-cart-btn" data-id="{{ product.id }}">В корзину</button>
+        <button class="modal-product-close" id="modalProductClose">×</button>
+    </div>
+</div> 

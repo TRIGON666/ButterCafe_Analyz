@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ButterCafe - Меню{% endblock %}
+
+{% block content %}
+<div class="container-main">
+    <h1 class="text-center mb-4">Меню</h1>
+    <div class="menu-categories mb-3">
+        <a href="?" class="menu-category-link{% if not request.GET.category %} active{% endif %}">Все</a>
+        {% for category in categories %}
+        <a href="?category={{ category.id }}" class="menu-category-link{% if request.GET.category == category.id|stringformat:'i' %} active{% endif %}">{{ category.name }}</a>
+        {% endfor %}
+    </div>
+    <form class="menu-search mb-4" method="get" autocomplete="off">
+        {% if request.GET.category %}
+        <input type="hidden" name="category" value="{{ request.GET.category }}">
+        {% endif %}
+        <div class="search-box">
+            <input type="text" class="search-input" name="search" placeholder="Поиск по названию..." value="{{ request.GET.search }}">
+            <button type="submit" class="search-btn"><img src="{% static 'images/search.svg' %}" alt="Поиск"></button>
+        </div>
+    </form>
+    <div class="products-grid">
+        {% for product in products %}
+        <a href="#" class="product-card product-link" data-id="{{ product.id }}">
+            {% if product.image %}
+            <img src="{{ product.image.url }}" alt="{{ product.name }}" class="product-img">
+            {% endif %}
+            <div class="product-info">
+                <div class="product-title">{{ product.name }}</div>
+                <div class="product-desc">{{ product.description }}</div>
+                <div class="product-bottom">
+                    <div class="product-price">{{ product.price|floatformat:0 }} р.</div>
+                    <button class="order-btn add-to-cart-btn" data-id="{{ product.id }}" onclick="event.stopPropagation(); event.preventDefault();">В корзину</button>
+                </div>
+            </div>
+        </a>
+        {% empty %}
+        <div style="text-align: center; grid-column: 1 / -1;">
+            <p style="color: #6C2A17; font-size: 18px;">Товары не найдены</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %} 
