@@ -433,15 +433,15 @@
   });
 
   // Данные
-  const dailyLabels = {{ daily_labels|safe }};
-  const dailyRevenue = {{ daily_revenue|safe }};
-  const dailyOrders = {{ daily_orders|safe }};
-  const topProductLabels = {{ top_product_labels|safe }};
-  const topProductValues = {{ top_product_values|safe }};
-  const eventLabels = {{ event_labels|safe }};
-  const eventValues = {{ event_values|safe }};
-  const hourlyLabels = {{ hourly_labels|safe }};
-  const hourlyValues = {{ hourly_values|safe }};
+  const dailyLabels = JSON.parse('{{ daily_labels|escapejs }}');
+  const dailyRevenue = JSON.parse('{{ daily_revenue|escapejs }}');
+  const dailyOrders = JSON.parse('{{ daily_orders|escapejs }}');
+  const topProductLabels = JSON.parse('{{ top_product_labels|escapejs }}');
+  const topProductValues = JSON.parse('{{ top_product_values|escapejs }}');
+  const eventLabels = JSON.parse('{{ event_labels|escapejs }}');
+  const eventValues = JSON.parse('{{ event_values|escapejs }}');
+  const hourlyLabels = JSON.parse('{{ hourly_labels|escapejs }}');
+  const hourlyValues = JSON.parse('{{ hourly_values|escapejs }}');
 
   // Цвета ButterCafe
   const cafeColors = {
