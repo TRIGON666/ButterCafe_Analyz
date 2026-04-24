@@ -1,0 +1,328 @@
+/* Custom admin styling for ButterCafe */
+
+:root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-muted: #f1f5f9;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --border: #cbd5e1;
+    --accent: #4f46e5;
+    --accent-strong: #4338ca;
+    --accent-soft: #e0e7ff;
+    --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+html.dark, body.dark,
+html.dark-mode, body.dark-mode,
+html.theme-dark, body.theme-dark,
+html[data-theme="dark"], body[data-theme="dark"] {
+    --bg: #0f172a;
+    --surface: #111827;
+    --surface-muted: #111b2e;
+    --text: #f8fafc;
+    --text-muted: #cbd5e1;
+    --border: #334155;
+    --accent: #8b5cf6;
+    --accent-strong: #7c3aed;
+    --accent-soft: rgba(139, 92, 246, 0.12);
+    --shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+html.light, body.light,
+html.light-mode, body.light-mode,
+html.theme-light, body.theme-light,
+html[data-theme="light"], body[data-theme="light"] {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-muted: #f1f5f9;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --border: #cbd5e1;
+    --accent: #4f46e5;
+    --accent-strong: #4338ca;
+    --accent-soft: #e0e7ff;
+    --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+html, body, body#admin-site {
+    background: var(--bg);
+    color: var(--text);
+}
+
+div#content, div#content-main, .module, .app-content, .dashboard-module, .inline-group, .fieldset, .module caption {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+fieldset.module {
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+}
+
+body.theme-dark fieldset.module {
+    box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.14);
+}
+
+input, select, textarea, .vLargeTextField, .vTextField, .vIntegerField, .vURLField, .vEmailField, .vPhoneNumberField, .vNumberField, .vDateField, .vTimeField {
+    background: var(--surface-muted) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0.65rem;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.25) !important;
+    outline: none !important;
+}
+
+select {
+    background: var(--surface-muted) !important;
+    color: var(--text) !important;
+}
+
+textarea {
+    background: var(--surface-muted) !important;
+    color: var(--text) !important;
+}
+
+label, .field-box, .inline-group .form-row, .form-row label, .form-row th, .form-row td {
+    color: var(--text-muted) !important;
+}
+
+.row1, .row2, .form-row:nth-child(odd) {
+    background: var(--surface) !important;
+}
+
+.row2 {
+    background: var(--surface-muted) !important;
+}
+
+hr {
+    border-color: var(--border) !important;
+}
+
+.submit-row, .submit-row input[type=submit], .submit-row button {
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+    color: #fff !important;
+}
+
+.submit-row input[type=submit]:hover, .submit-row button:hover {
+    background: var(--accent-strong) !important;
+    color: #fff !important;
+}
+
+/* Кнопка на главной админки (index), не в шапке Unfold */
+.dashboard-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 0 18px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff !important;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.dashboard-button:hover {
+    background: var(--accent-strong);
+    transform: translateY(-1px);
+}
+
+#header, .branding, .nav-global {
+    background: var(--surface) !important;
+}
+
+#header .module, .dashboard-module {
+    background: var(--surface) !important;
+}
+
+.app-list, .module .list-table, .result-list, .admin-pagination {
+    background: var(--surface) !important;
+}
+
+.app-list h2, .module h2, .module caption {
+    color: var(--text) !important;
+}
+
+fieldset.module .module-title, .result-list th, .field-filter {
+    color: var(--text) !important;
+}
+
+/* Make theme switch button icons and labels visible in both themes */
+.material-symbols-outlined, .dark .material-symbols-outlined, .material-symbols-outlined span {
+    color: currentColor !important;
+}
+
+.dark .text-primary-500, .text-primary-600 {
+    color: var(--accent) !important;
+}
+
+.hover\:!text-primary-600:hover, .hover\:text-primary-600:hover {
+    color: var(--accent-strong) !important;
+}
+
+.dark:hover\:text-gray-200:hover, .hover\:text-gray-700:hover {
+    color: var(--text) !important;
+}
+
+.dark\:hover\:bg-gray-700:hover {
+    background: rgba(15, 23, 42, 0.85) !important;
+}
+
+.related-widget-wrapper select, .related-widget-wrapper input {
+    background: var(--surface-muted) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+select[multiple], .select2-selection__rendered {
+    background: var(--surface-muted) !important;
+    color: var(--text) !important;
+}
+
+.inline-related, .inline-group h2, .inline-group h3 {
+    color: var(--text) !important;
+}
+
+/* Improve visibility of filters and sidebar */
+fieldset.module.grp-module, .changelist-filter {
+    border-color: var(--border) !important;
+}
+
+.changelist-filter h2, .filter-title, .field-filter {
+    color: var(--text) !important;
+}
+
+/* Override default admin buttons */
+button, input[type=button], input[type=submit] {
+    color: #fff !important;
+    background: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
+button:hover, input[type=button]:hover, input[type=submit]:hover {
+    background: var(--accent-strong) !important;
+    border-color: var(--accent-strong) !important;
+}
+
+/* Fix select width and label spacing */
+.form-row .field-box, .form-row .label {
+    display: block;
+}
+
+fieldset.inline-related .form-row {
+    padding: 10px 0 !important;
+}
+
+.dashboard-hero {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(79,76,236,0.18) 0%, rgba(15,23,42,0.96) 100%);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.dashboard-hero h1 {
+    margin: 0;
+    font-size: 32px;
+    color: #fff;
+}
+
+.dashboard-hero p {
+    margin: 12px 0 0 0;
+    max-width: 640px;
+    color: rgba(255,255,255,0.8);
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.dashboard-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.dashboard-actions-intro {
+    color: rgba(255,255,255,0.75);
+    font-size: 0.95rem;
+}
+
+.dashboard-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.dashboard-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
+}
+
+.dashboard-card h2 {
+    margin: 0 0 10px 0;
+    font-size: 18px;
+    color: var(--text);
+}
+
+.dashboard-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+}
+
+.dashboard-card li {
+    margin: 0;
+}
+
+.dashboard-card li a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--surface-muted);
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.dashboard-card li a:hover {
+    background: var(--surface);
+    color: var(--text);
+}
+
+.dashboard-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.dashboard-actions-intro {
+    font-size: 14px;
+    color: #94a3b8;
+}

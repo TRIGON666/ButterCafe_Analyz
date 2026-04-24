@@ -1,0 +1,23 @@
+{% extends 'admin/base.html' %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" type="text/css" href="{% static 'admin/css/custom_admin.css' %}">
+{% endblock %}
+
+{# Unfold вставляет {{ branding }} в узкую строку сайдбара — только короткий заголовок. #}
+{% block branding %}
+<a href="{% url 'admin:index' %}" class="truncate text-sm font-semibold tracking-tight text-gray-900 hover:text-primary-600 dark:text-gray-100 dark:hover:text-primary-500" title="{% trans 'Home' %}">{{ site_header }}</a>
+{% endblock %}
+
+{# Слот справа в шапке (рядом с темой и аккаунтом), см. unfold/helpers/userlinks.html #}
+{% block nav-global-side %}
+{% url 'admin_analytics_dashboard' as analytics_url %}
+<a href="{{ analytics_url }}"
+   class="admin-header-dashboard mr-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-primary-600 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-primary-400{% if '/admin/analytics' in request.path %} bg-gray-100 font-semibold text-primary-600 dark:bg-white/[.06] dark:text-primary-500{% endif %}"
+   title="Выручка, заказы, графики">
+    <span class="material-symbols-outlined text-[18px]">bar_chart</span>
+    <span class="hidden sm:inline">Дашборд</span>
+</a>
+{% endblock %}

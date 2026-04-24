@@ -247,7 +247,9 @@ def about(request):
     return render(request, 'about.html', context)
 
 def addresses(request):
-    return render(request, 'addresses.html')
+    return render(request, 'addresses.html', {
+        'cart_items_count': get_cart_items_count(request)
+    })
 
 
 @login_required

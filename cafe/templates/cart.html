@@ -29,11 +29,11 @@
                             <form method="post" action="{% url 'cafe:update_cart_item' item.id %}" style="display: flex; gap: 8px; align-items: center;">
                                 {% csrf_token %}
                                 <input type="number" name="quantity" value="{{ item.quantity }}" min="1" style="width: 60px; padding: 6px 8px; border: 1px solid #d8c7b1; border-radius: 8px; font-size: 14px;">
-                                <button type="submit" class="btn" style="padding: 0 14px; min-height: 36px; font-size: 14px;">Обновить</button>
+                                <button type="submit" class="btn">Обновить</button>
                             </form>
                             <form method="post" action="{% url 'cafe:remove_from_cart' item.id %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-danger" style="padding: 0 14px; min-height: 36px; font-size: 14px;">Удалить</button>
+                                <button type="submit" class="btn btn-danger">Удалить</button>
                             </form>
                         </div>
                     </div>
@@ -45,7 +45,7 @@
             <div class="card" style="padding: 20px;">
                 <h5 style="color: #6C2A17; font-weight: 600; margin: 0 0 16px 0;">Итого</h5>
                 <p style="color: #B1856C; font-weight: 700; font-size: 24px; margin: 0 0 20px 0;">{{ total_price }} ₽</p>
-                <button class="btn" id="openOrderModal" style="width: 100%; padding: 12px 0; font-size: 16px;">Оформить заказ</button>
+                <button type="button" class="btn cart-checkout-btn" id="openOrderModal">Оформить заказ</button>
             </div>
         </div>
     </div>

@@ -109,6 +109,9 @@ function getCookie(name) {
 
 document.addEventListener('DOMContentLoaded', function() {
     document.body.addEventListener('click', function(e) {
+        if (e.target.closest('.add-to-cart-btn')) {
+            return;
+        }
         var link = e.target.closest('.product-link');
         if (link && link.dataset.id) {
             e.preventDefault();

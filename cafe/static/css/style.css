@@ -1338,6 +1338,11 @@ img {
     border-radius: 999px;
 }
 
+.cart-checkout-btn {
+    width: 100%;
+    margin-top: 4px;
+}
+
 @media (max-width: 700px) {
     .auth-card,
     .lk-card {

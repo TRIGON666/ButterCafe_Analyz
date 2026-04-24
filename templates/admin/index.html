@@ -1,0 +1,32 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n %}
+
+{% block content %}
+<div class="dashboard-hero">
+    <div>
+        <h1>ButterCafe Admin</h1>
+        <p>Удобный центр управления сайтом: быстрый переход к заказам, товарам, пользователям и аналитике.</p>
+    </div>
+    <div class="dashboard-hero-actions">
+        <a href="{% url 'admin_analytics_dashboard' %}" class="dashboard-button">Перейти в дашборд</a>
+        <span class="dashboard-actions-intro">Доступ к ключевым метрикам в один клик.</span>
+    </div>
+</div>
+
+{% if app_list %}
+<div class="dashboard-cards">
+    {% for app in app_list %}
+    <div class="dashboard-card">
+        <h2>{{ app.name }}</h2>
+        <ul>
+            {% for model in app.models %}
+            <li><a href="{{ model.admin_url }}">{{ model.name }}</a></li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p>{% trans "You don't have permission to view any apps." %}</p>
+{% endif %}
+{% endblock %}
