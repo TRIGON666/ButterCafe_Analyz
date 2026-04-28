@@ -1,0 +1,193 @@
+{% extends "admin/base_site.html" %}
+
+{% block title %}Metabase | ButterCafe Admin{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .metabase-page {
+    max-width: 1520px;
+    margin: 0 auto;
+    display: grid;
+    gap: 18px;
+  }
+
+  .metabase-hero,
+  .metabase-panel,
+  .metabase-setup {
+    border: 1px solid var(--bc-border);
+    border-radius: 14px;
+    background: rgba(255, 250, 243, 0.92);
+    box-shadow: var(--bc-shadow);
+  }
+
+  .metabase-hero {
+    padding: 24px;
+    background: linear-gradient(135deg, #6c2a17, #b1856c);
+    color: #fff;
+  }
+
+  .metabase-hero h1 {
+    margin: 0;
+    color: #fff !important;
+    font-size: 34px;
+    line-height: 1.1;
+  }
+
+  .metabase-hero p {
+    max-width: 760px;
+    margin: 12px 0 0;
+    color: rgba(255, 255, 255, 0.88);
+    line-height: 1.55;
+  }
+
+  .metabase-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .metabase-btn {
+    min-height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 18px;
+    background: #fffaf3;
+    color: #6c2a17 !important;
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .metabase-frame {
+    width: 100%;
+    min-height: 760px;
+    display: block;
+    border: 0;
+    border-radius: 14px;
+    background: #fff;
+  }
+
+  .metabase-setup {
+    padding: 22px;
+    color: #2d221c;
+  }
+
+  .metabase-setup h2,
+  .metabase-panel h2 {
+    margin: 0 0 12px;
+    color: #6c2a17;
+    font-size: 22px;
+  }
+
+  .metabase-setup code {
+    display: inline-flex;
+    margin: 4px 6px 4px 0;
+    padding: 5px 8px;
+    border-radius: 8px;
+    background: #f0e2d2;
+    color: #4f1d10;
+    font-weight: 700;
+  }
+
+  .metabase-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .metabase-panel {
+    padding: 18px;
+  }
+
+  .metabase-kv {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .metabase-kv div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid rgba(177, 133, 108, 0.22);
+    padding-bottom: 8px;
+  }
+
+  .metabase-kv dt {
+    color: #6c2a17;
+    font-weight: 800;
+  }
+
+  .metabase-kv dd {
+    margin: 0;
+    color: #2d221c;
+    text-align: right;
+  }
+
+  @media (max-width: 900px) {
+    .metabase-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .metabase-frame {
+      min-height: 620px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="metabase-page">
+  <section class="metabase-hero">
+    <h1>Metabase: облачная аналитика пекарни</h1>
+    <p>Здесь встраивается BI-дашборд Metabase для анализа выручки, заказов, среднего чека, спроса по товарам и активности клиентов.</p>
+    <div class="metabase-actions">
+      <a class="metabase-btn" href="{% url 'admin_analytics_dashboard' %}">Локальная аналитика</a>
+      {% if metabase_base_url %}
+      <a class="metabase-btn" href="{{ metabase_base_url }}" target="_blank" rel="noopener">Открыть Metabase</a>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if metabase_url %}
+  <iframe
+    class="metabase-frame"
+    src="{{ metabase_url }}"
+    title="ButterCafe Metabase dashboard"
+    allowtransparency
+  ></iframe>
+  {% else %}
+  <section class="metabase-setup">
+    <h2>Нужно настроить embed</h2>
+    <p>Добавьте недостающие переменные в `.env`, перезапустите Django и включите embedding в Metabase.</p>
+    <p>
+      {% for setting in missing_settings %}
+      <code>{{ setting }}</code>
+      {% endfor %}
+    </p>
+  </section>
+  {% endif %}
+
+  <div class="metabase-grid">
+    <section class="metabase-panel">
+      <h2>Подключение</h2>
+      <dl class="metabase-kv">
+        <div><dt>URL</dt><dd>{{ metabase_base_url|default:"не задан" }}</dd></div>
+        <div><dt>Dashboard ID</dt><dd>{{ metabase_dashboard_id|default:"не задан" }}</dd></div>
+      </dl>
+    </section>
+
+    <section class="metabase-panel">
+      <h2>Карточки для email-отчета</h2>
+      <dl class="metabase-kv">
+        {% for name, card_id in metabase_card_ids.items %}
+        <div><dt>{{ name }}</dt><dd>{{ card_id|default:"не задан" }}</dd></div>
+        {% endfor %}
+      </dl>
+    </section>
+  </div>
+</div>
+{% endblock %}

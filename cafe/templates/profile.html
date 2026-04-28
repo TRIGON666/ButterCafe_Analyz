@@ -11,6 +11,7 @@
         {% if request.user.is_staff %}
         <a href="{% url 'admin:index' %}" class="lk-tab admin-tab" style="background:#f0e2d2; border-color:#d4a574;">Админка</a>
         <a href="{% url 'admin_analytics_dashboard' %}" class="lk-tab admin-tab" style="background:#f0e2d2; border-color:#d4a574;">Аналитика</a>
+        <a href="{% url 'admin_metabase_dashboard' %}" class="lk-tab admin-tab" style="background:#f0e2d2; border-color:#d4a574;">Metabase</a>
         {% endif %}
     </div>
 
@@ -51,6 +52,11 @@
             <a href="{% url 'admin_analytics_dashboard_pdf' %}" style="padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); text-decoration: none; color: var(--ui-text); display: block; background: var(--ui-surface);">
                 <div style="font-weight: 700; color: var(--ui-accent); margin-bottom: 6px;"><i class="fa-solid fa-download"></i>&nbsp; Скачать PDF отчет</div>
                 <div style="font-size: 13px;">Скачивает аналитический отчет в формате PDF.</div>
+            </a>
+
+            <a href="{% url 'admin_metabase_dashboard' %}" style="padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); text-decoration: none; color: var(--ui-text); display: block; background: var(--ui-surface);">
+                <div style="font-weight: 700; color: var(--ui-accent); margin-bottom: 6px;"><i class="fa-solid fa-chart-line"></i>&nbsp; Metabase BI</div>
+                <div style="font-size: 13px;">Открывает встроенный BI-дашборд Metabase для анализа работы пекарни.</div>
             </a>
 
             <form method="post" style="padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); display: flex; flex-direction: column; justify-content: space-between;">

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -27,14 +28,17 @@ def env_bool(name, default=False):
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv(
-    'SECRET_KEY',
-    'buttercafe-local-dev-key-7xKp29LmQ4zR8vN3sY6tA1cD5eF0gH2jM9pS',
-)
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env_bool('DEBUG', True)
+DEBUG = env_bool('DEBUG', False)
+IS_TESTING = 'test' in sys.argv
+
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'buttercafe-local-dev-key-7xKp29LmQ4zR8vN3sY6tA1cD5eF0gH2jM9pS'
+    else:
+        raise RuntimeError('SECRET_KEY must be set when DEBUG=False')
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -54,20 +58,14 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.humanize',
     'allauth',
     'allauth.account',
-    'allauth.socialaccount',
     'cafe.apps.CafeConfig',
-    'crispy_forms',
-    'crispy_bootstrap5',
-    'django_filters',
-    'import_export',
-    'django_extensions',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'cafe.middleware.ContentSecurityPolicyMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -166,9 +164,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
-CRISPY_TEMPLATE_PACK = "bootstrap5"
-
 SITE_ID = 1
 
 AUTHENTICATION_BACKENDS = [
@@ -193,13 +188,28 @@ EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'noreply@buttercafe.local')
 OWNER_REPORT_EMAIL = os.getenv('OWNER_REPORT_EMAIL', '')
 
-# Production security toggles. Keep them false in local development and enable in .env on HTTPS.
-SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', False)
-SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', False)
-CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', False)
+# Production security toggles. Override them in .env if local HTTPS is not available.
+SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', not DEBUG and not IS_TESTING)
+SESSION_COOKIE_SECURE = env_bool('SESSION_COOKIE_SECURE', not DEBUG and not IS_TESTING)
+CSRF_COOKIE_SECURE = env_bool('CSRF_COOKIE_SECURE', not DEBUG and not IS_TESTING)
 SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env_bool('SECURE_HSTS_INCLUDE_SUBDOMAINS', False)
 SECURE_HSTS_PRELOAD = env_bool('SECURE_HSTS_PRELOAD', False)
+
+# Local analytics exports may contain personal data, so keep them out of git by default.
+ANALYTICS_EXPORT_ROOT = os.getenv('ANALYTICS_EXPORT_ROOT', str(BASE_DIR / 'private_data_lake'))
+
+CONTENT_SECURITY_POLICY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
+    "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; "
+    "img-src 'self' data:; "
+    "connect-src 'self'; "
+    "frame-ancestors 'self'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
 
 # Metabase API settings
 METABASE_URL = os.getenv('METABASE_URL', 'http://localhost:3000')
@@ -210,6 +220,9 @@ METABASE_ORDERS_CARD_ID = os.getenv('METABASE_ORDERS_CARD_ID', '')
 METABASE_AVG_CHECK_CARD_ID = os.getenv('METABASE_AVG_CHECK_CARD_ID', '')
 METABASE_NEW_CLIENTS_CARD_ID = os.getenv('METABASE_NEW_CLIENTS_CARD_ID', '')
 METABASE_TOP_PRODUCTS_CARD_ID = os.getenv('METABASE_TOP_PRODUCTS_CARD_ID', '')
+METABASE_DASHBOARD_ID = os.getenv('METABASE_DASHBOARD_ID', '')
+METABASE_EMBED_SECRET = os.getenv('METABASE_EMBED_SECRET', '')
+METABASE_EMBED_THEME = os.getenv('METABASE_EMBED_THEME', 'light')
 
 # Django Unfold Configuration
 UNFOLD = {

@@ -19,11 +19,12 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from cafe.admin_dashboard import analytics_dashboard, analytics_dashboard_pdf
+from cafe.admin_dashboard import analytics_dashboard, analytics_dashboard_pdf, metabase_dashboard
 
 urlpatterns = [
     path('admin/analytics/', admin.site.admin_view(analytics_dashboard), name='admin_analytics_dashboard'),
     path('admin/analytics/pdf/', admin.site.admin_view(analytics_dashboard_pdf), name='admin_analytics_dashboard_pdf'),
+    path('admin/metabase/', admin.site.admin_view(metabase_dashboard), name='admin_metabase_dashboard'),
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('', include('cafe.urls')),

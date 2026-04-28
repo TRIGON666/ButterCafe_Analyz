@@ -2,12 +2,14 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
-from urllib import error, parse, request
+from urllib import error, request
 
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models import Count, F, Sum
+from django.utils.html import escape
 from django.utils import timezone
 
 from cafe.models import Order, OrderItem
@@ -21,6 +23,7 @@ class DailyMetrics:
     avg_check: Decimal
     new_clients: int
     top_products: list[dict[str, Any]]
+    recommendations: list[str]
     source: str
 
 
@@ -149,6 +152,8 @@ def get_daily_metrics():
         metrics = local_metrics(start_dt, end_dt)
         source = 'local-db'
 
+    recommendations = build_daily_recommendations(metrics)
+
     return DailyMetrics(
         report_date=report_day.strftime('%d.%m.%Y'),
         revenue=metrics['revenue'],
@@ -156,8 +161,32 @@ def get_daily_metrics():
         avg_check=metrics['avg_check'],
         new_clients=metrics['new_clients'],
         top_products=metrics['top_products'],
+        recommendations=recommendations,
         source=source,
     )
+
+
+def build_daily_recommendations(metrics):
+    recommendations = []
+    top_products = metrics.get('top_products') or []
+    revenue = metrics.get('revenue') or Decimal('0')
+    orders_count = metrics.get('orders_count') or 0
+    avg_check = metrics.get('avg_check') or Decimal('0')
+
+    if top_products:
+        leader = top_products[0]
+        recommendations.append(
+            f'Подготовить дополнительный запас товара "{leader["product_name"]}" — он лидирует по продажам.'
+        )
+    if not orders_count:
+        recommendations.append('За вчера не было заказов: проверьте рекламные каналы и доступность меню.')
+    elif avg_check < Decimal('700'):
+        recommendations.append('Средний чек ниже 700 руб.: стоит предложить наборы, комбо или допродажи к напиткам.')
+    if revenue > Decimal('0') and orders_count >= 3:
+        recommendations.append('День был активным: сохраните ассортимент и график выпечки для похожих дней недели.')
+    if not recommendations:
+        recommendations.append('Данных достаточно для наблюдения, критичных отклонений не найдено.')
+    return recommendations
 
 
 def render_daily_report_text(daily_metrics):
@@ -166,6 +195,8 @@ def render_daily_report_text(daily_metrics):
     else:
         top = 'Нет данных'
 
+    recommendations = '\n'.join(f'- {item}' for item in daily_metrics.recommendations)
+
     return (
         f"Ежедневный отчет ButterCafe за {daily_metrics.report_date}\n"
         f"Источник метрик: {daily_metrics.source}\n\n"
@@ -173,5 +204,78 @@ def render_daily_report_text(daily_metrics):
         f"Количество заказов: {daily_metrics.orders_count}\n"
         f"Средний чек: {daily_metrics.avg_check:.2f} руб.\n"
         f"Новых клиентов: {daily_metrics.new_clients}\n"
-        f"Топ-3 товара: {top}\n"
+        f"Топ-3 товара: {top}\n\n"
+        f"Рекомендации:\n{recommendations}\n"
     )
+
+
+def render_daily_report_html(daily_metrics):
+    if daily_metrics.top_products:
+        top_rows = ''.join(
+            f'<tr><td>{escape(item.get("product_name") or "Без названия")}</td><td style="text-align:right">{int(item.get("quantity") or 0)}</td></tr>'
+            for item in daily_metrics.top_products
+        )
+    else:
+        top_rows = '<tr><td colspan="2">Нет данных</td></tr>'
+
+    recommendations = ''.join(f'<li>{escape(item)}</li>' for item in daily_metrics.recommendations)
+
+    return f"""
+<!doctype html>
+<html lang="ru">
+<body style="margin:0;padding:0;background:#f6f1e7;font-family:Arial,sans-serif;color:#2d221c;">
+  <div style="max-width:720px;margin:0 auto;padding:24px;">
+    <div style="background:#6c2a17;color:#fff;border-radius:14px;padding:24px;">
+      <h1 style="margin:0;font-size:26px;">Ежедневный отчет ButterCafe</h1>
+      <p style="margin:8px 0 0;color:#f6eadf;">{daily_metrics.report_date} · источник: {daily_metrics.source}</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0;">
+      <div style="background:#fffaf3;border:1px solid #e0d3c0;border-radius:12px;padding:16px;">
+        <div style="color:#785957;font-size:12px;font-weight:bold;text-transform:uppercase;">Выручка</div>
+        <div style="font-size:28px;font-weight:bold;color:#6c2a17;">{daily_metrics.revenue:.2f} руб.</div>
+      </div>
+      <div style="background:#fffaf3;border:1px solid #e0d3c0;border-radius:12px;padding:16px;">
+        <div style="color:#785957;font-size:12px;font-weight:bold;text-transform:uppercase;">Заказы</div>
+        <div style="font-size:28px;font-weight:bold;color:#6c2a17;">{daily_metrics.orders_count}</div>
+      </div>
+      <div style="background:#fffaf3;border:1px solid #e0d3c0;border-radius:12px;padding:16px;">
+        <div style="color:#785957;font-size:12px;font-weight:bold;text-transform:uppercase;">Средний чек</div>
+        <div style="font-size:28px;font-weight:bold;color:#6c2a17;">{daily_metrics.avg_check:.2f} руб.</div>
+      </div>
+      <div style="background:#fffaf3;border:1px solid #e0d3c0;border-radius:12px;padding:16px;">
+        <div style="color:#785957;font-size:12px;font-weight:bold;text-transform:uppercase;">Новые клиенты</div>
+        <div style="font-size:28px;font-weight:bold;color:#6c2a17;">{daily_metrics.new_clients}</div>
+      </div>
+    </div>
+
+    <div style="background:#fffaf3;border:1px solid #e0d3c0;border-radius:12px;padding:18px;margin-bottom:14px;">
+      <h2 style="margin:0 0 12px;color:#6c2a17;font-size:20px;">Топ товаров</h2>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr><th style="text-align:left;border-bottom:1px solid #e0d3c0;padding:8px;">Товар</th><th style="text-align:right;border-bottom:1px solid #e0d3c0;padding:8px;">Количество</th></tr></thead>
+        <tbody>{top_rows}</tbody>
+      </table>
+    </div>
+
+    <div style="background:#fffaf3;border:1px solid #e0d3c0;border-radius:12px;padding:18px;">
+      <h2 style="margin:0 0 12px;color:#6c2a17;font-size:20px;">Рекомендации</h2>
+      <ul style="margin:0;padding-left:20px;line-height:1.6;">{recommendations}</ul>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+def save_daily_report_files(daily_metrics, text_body=None, html_body=None):
+    day, month, year = daily_metrics.report_date.split('.')
+    report_dir = Path(settings.ANALYTICS_EXPORT_ROOT) / 'reports' / year / month / day
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    text_path = report_dir / 'daily_report.txt'
+    html_path = report_dir / 'daily_report.html'
+
+    text_path.write_text(text_body or render_daily_report_text(daily_metrics), encoding='utf-8')
+    html_path.write_text(html_body or render_daily_report_html(daily_metrics), encoding='utf-8')
+
+    return text_path, html_path

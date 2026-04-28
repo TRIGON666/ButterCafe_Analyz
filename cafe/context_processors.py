@@ -1,4 +1,6 @@
-from .models import Cart
+from django.db.models import Sum
+
+from .models import CartItem
 
 
 def cart_items_count(request):
@@ -6,10 +8,8 @@ def cart_items_count(request):
     if not session_key:
         return {'cart_items_count': 0}
 
-    cart = Cart.objects.filter(session_key=session_key).first()
-    if cart is None:
-        return {'cart_items_count': 0}
-
     return {
-        'cart_items_count': sum(cart.items.values_list('quantity', flat=True))
+        'cart_items_count': CartItem.objects.filter(cart__session_key=session_key).aggregate(
+            total=Sum('quantity')
+        )['total'] or 0
     }

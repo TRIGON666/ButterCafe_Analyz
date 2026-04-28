@@ -46,6 +46,10 @@ DB_PASSWORD=postgres
 DB_HOST=localhost
 DB_PORT=5432
 
+# Локальная папка для выгрузок с персональными данными.
+# По умолчанию используется private_data_lake/, она исключена из git.
+ANALYTICS_EXPORT_ROOT=private_data_lake
+
 # SMTP для ежедневного отчета
 EMAIL_HOST=smtp.example.com
 EMAIL_PORT=587
@@ -59,6 +63,9 @@ OWNER_REPORT_EMAIL=owner@example.com
 METABASE_URL=http://localhost:3000
 METABASE_USERNAME=admin@example.com
 METABASE_PASSWORD=metabase_password
+METABASE_DASHBOARD_ID=
+METABASE_EMBED_SECRET=
+METABASE_EMBED_THEME=light
 METABASE_REVENUE_CARD_ID=
 METABASE_ORDERS_CARD_ID=
 METABASE_AVG_CHECK_CARD_ID=
@@ -94,9 +101,9 @@ python manage.py export_daily_analytics
 Файлы создаются в папке:
 
 ```
-data_lake/YYYY/MM/DD/orders.csv
-data_lake/YYYY/MM/DD/orders.json
-data_lake/YYYY/MM/DD/events.csv
+private_data_lake/YYYY/MM/DD/orders.csv
+private_data_lake/YYYY/MM/DD/orders.json
+private_data_lake/YYYY/MM/DD/events.csv
 ```
 
 ### Ежедневный email-отчет
@@ -120,6 +127,19 @@ docker run -d --name metabase -p 3000:3000 metabase/metabase
 3. Создайте карточки для дашбордов, используя SQL из файла:
 
 `docs/metabase_dashboard_queries.sql`
+
+4. В Metabase включите embedding, скопируйте embed secret и ID основного дашборда в `.env`:
+
+```
+METABASE_DASHBOARD_ID=1
+METABASE_EMBED_SECRET=your-metabase-embed-secret
+```
+
+5. Встроенный BI-раздел доступен в Django Admin:
+
+`/admin/metabase/`
+
+Карточки `METABASE_REVENUE_CARD_ID`, `METABASE_ORDERS_CARD_ID`, `METABASE_AVG_CHECK_CARD_ID`, `METABASE_NEW_CLIENTS_CARD_ID`, `METABASE_TOP_PRODUCTS_CARD_ID` используются командой `generate_daily_report`. Если они не заданы или Metabase недоступен, отчет строится по локальной PostgreSQL базе.
 
 ### Диаграммы в админке
 

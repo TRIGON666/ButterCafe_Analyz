@@ -98,6 +98,20 @@ function showToast(msg) {
     }, 1800);
 }
 
+function setSubmitState(button, isLoading, loadingText) {
+    if (!button) return;
+    if (isLoading) {
+        button.dataset.originalText = button.textContent;
+        button.textContent = loadingText || 'Отправляем...';
+        button.disabled = true;
+        button.classList.add('is-loading');
+    } else {
+        button.textContent = button.dataset.originalText || button.textContent;
+        button.disabled = false;
+        button.classList.remove('is-loading');
+    }
+}
+
 function getCookie(name) {
     var cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -126,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             openProductModal(link.dataset.id);
         }
-        if (e.target.classList.contains('modal-product-overlay') || e.target.id === 'modalProductClose') {
+        if (e.target.classList.contains('modal-product-overlay') || e.target.closest('#modalProductClose')) {
             closeProductModal();
         }
     });
@@ -139,6 +153,12 @@ document.addEventListener('DOMContentLoaded', function() {
             openProductModal(link.dataset.id);
         }
     });
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    closeProductModal();
+    closeOrderModal();
 });
 
 function openProductModal(productId) {
@@ -209,6 +229,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (form) {
                         form.onsubmit = function(ev) {
                             ev.preventDefault();
+                            var submitBtn = form.querySelector('.order-modal-submit');
+                            setSubmitState(submitBtn, true, 'Оформляем...');
                             var formData = new FormData(form);
                             fetch('/order/create/', {
                                 method: 'POST',
@@ -228,12 +250,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (data.success) {
                                     closeOrderModal();
                                     showToast('Заказ успешно оформлен!');
-                                    setTimeout(function() { window.location.reload(); }, 1200);
+                                    setTimeout(function() {
+                                        window.location.href = data.order_url || '/cart/';
+                                    }, 650);
                                 }
                             })
                             .catch(function(data) {
                                 var errors = data && data.errors ? data.errors : ['Не удалось оформить заказ. Попробуйте позже.'];
-                                alert('Ошибка: ' + errors.join('\n'));
+                                showToast('Ошибка: ' + errors.join(' '));
+                                setSubmitState(submitBtn, false);
                             });
                         };
                     }
@@ -254,12 +279,20 @@ function setupOrderTotals() {
     if (!deliveryType || !itemsPriceEl || !deliveryPriceEl || !totalPriceEl) return;
 
     var itemsPrice = Number(itemsPriceEl.dataset.value || itemsPriceEl.textContent || 0);
+    var moneyFormatter = new Intl.NumberFormat('ru-RU', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+
+    function formatMoney(value) {
+        return moneyFormatter.format(value);
+    }
 
     function refreshTotals() {
         var isDelivery = deliveryType.value === 'delivery';
         var deliveryPrice = isDelivery ? 100 : 0;
-        deliveryPriceEl.textContent = deliveryPrice;
-        totalPriceEl.textContent = itemsPrice + deliveryPrice;
+        deliveryPriceEl.textContent = formatMoney(deliveryPrice);
+        totalPriceEl.textContent = formatMoney(itemsPrice + deliveryPrice);
         if (address) {
             address.required = isDelivery;
             var addressBlock = document.getElementById('addressBlock');

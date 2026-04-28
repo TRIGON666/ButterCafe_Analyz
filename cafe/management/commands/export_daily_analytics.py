@@ -20,7 +20,7 @@ class Command(BaseCommand):
         day_start = timezone.make_aware(datetime.combine(export_day, time.min))
         day_end = timezone.make_aware(datetime.combine(export_day, time.max))
 
-        base_dir = Path(settings.BASE_DIR) / 'data_lake' / export_day.strftime('%Y') / export_day.strftime('%m') / export_day.strftime('%d')
+        base_dir = Path(settings.ANALYTICS_EXPORT_ROOT) / export_day.strftime('%Y') / export_day.strftime('%m') / export_day.strftime('%d')
         base_dir.mkdir(parents=True, exist_ok=True)
 
         orders = list(

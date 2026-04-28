@@ -1,80 +1,186 @@
--- Dashboard 1: Sales
--- Revenue by day
-SELECT DATE(created_at) AS day, SUM(total) AS revenue
+-- Дашборд 1: Продажи
+-- Выручка по дням
+-- Рекомендация Metabase: линейный график. X = Дата, Y = Выручка.
+SELECT DATE(created_at) AS "Дата", SUM(total) AS "Выручка"
 FROM cafe_order
 GROUP BY DATE(created_at)
-ORDER BY day;
+ORDER BY "Дата";
 
--- Orders count by day
-SELECT DATE(created_at) AS day, COUNT(*) AS orders_count
+-- Количество заказов по дням
+-- Рекомендация Metabase: столбчатая диаграмма. X = Дата, Y = Количество заказов.
+SELECT DATE(created_at) AS "Дата", COUNT(*) AS "Количество заказов"
 FROM cafe_order
 GROUP BY DATE(created_at)
-ORDER BY day;
+ORDER BY "Дата";
 
--- Average check by day
-SELECT DATE(created_at) AS day, AVG(total) AS avg_check
+-- Средний чек по дням
+-- Рекомендация Metabase: линейный график или комбинированный график рядом с выручкой. X = Дата, Y = Средний чек.
+SELECT DATE(created_at) AS "Дата", AVG(total) AS "Средний чек"
 FROM cafe_order
 GROUP BY DATE(created_at)
-ORDER BY day;
+ORDER BY "Дата";
 
--- Dashboard 2: Products
--- Top products by revenue
-SELECT p.name AS product_name, SUM(oi.quantity * oi.price) AS revenue
+-- Дашборд 2: Товары
+-- Топ товаров по выручке
+-- Рекомендация Metabase: горизонтальная столбчатая диаграмма. X = Выручка, Y = Товар.
+SELECT p.name AS "Товар", SUM(oi.quantity * oi.price) AS "Выручка"
 FROM cafe_orderitem oi
 JOIN cafe_product p ON p.id = oi.product_id
 GROUP BY p.name
-ORDER BY revenue DESC
+ORDER BY "Выручка" DESC
 LIMIT 10;
 
--- Top products by quantity
-SELECT p.name AS product_name, SUM(oi.quantity) AS quantity
+-- Топ товаров по количеству продаж
+-- Рекомендация Metabase: горизонтальная столбчатая диаграмма. X = Продано, шт., Y = Товар.
+SELECT p.name AS "Товар", SUM(oi.quantity) AS "Продано, шт."
 FROM cafe_orderitem oi
 JOIN cafe_product p ON p.id = oi.product_id
 GROUP BY p.name
-ORDER BY quantity DESC
+ORDER BY "Продано, шт." DESC
 LIMIT 10;
 
--- Product margin (price - cost_price)
-SELECT name, price, cost_price, (price - COALESCE(cost_price, 0)) AS margin
+-- Маржинальность товаров: цена минус себестоимость
+-- Рекомендация Metabase: таблица с сортировкой по Марже или горизонтальная столбчатая диаграмма. X = Маржа, Y = Товар.
+SELECT
+    name AS "Товар",
+    price AS "Цена",
+    cost_price AS "Себестоимость",
+    (price - COALESCE(cost_price, 0)) AS "Маржа"
 FROM cafe_product
-ORDER BY margin DESC;
+ORDER BY "Маржа" DESC;
 
--- Dashboard 3: Clients
--- New clients by day
-SELECT DATE(date_joined) AS day, COUNT(*) AS new_clients
+-- Дашборд 3: Клиенты
+-- Новые клиенты по дням
+-- Рекомендация Metabase: столбчатая диаграмма. X = Дата, Y = Новые клиенты.
+SELECT DATE(date_joined) AS "Дата", COUNT(*) AS "Новые клиенты"
 FROM auth_user
 GROUP BY DATE(date_joined)
-ORDER BY day;
+ORDER BY "Дата";
 
--- Repeat purchases by customer
-SELECT u.username, COUNT(o.id) AS orders_count, SUM(o.total) AS total_spent
+-- Повторные покупки по клиентам
+-- Рекомендация Metabase: таблица. Сортировка по Количеству заказов и Сумме покупок.
+SELECT
+    u.username AS "Клиент",
+    COUNT(o.id) AS "Количество заказов",
+    SUM(o.total) AS "Сумма покупок"
 FROM cafe_order o
 JOIN auth_user u ON u.id = o.user_id
 WHERE o.user_id IS NOT NULL
 GROUP BY u.username
 HAVING COUNT(o.id) > 1
-ORDER BY orders_count DESC, total_spent DESC;
+ORDER BY "Количество заказов" DESC, "Сумма покупок" DESC;
 
--- Simple RFM source
+-- Источник для простого RFM-анализа
+-- Рекомендация Metabase: таблица. Используйте для сегментации клиентов по давности, частоте и сумме покупок.
 SELECT
-    u.id AS user_id,
-    u.username,
-    MAX(o.created_at) AS last_order_at,
-    COUNT(o.id) AS frequency,
-    SUM(o.total) AS monetary
+    u.id AS "ID клиента",
+    u.username AS "Клиент",
+    MAX(o.created_at) AS "Последний заказ",
+    COUNT(o.id) AS "Частота покупок",
+    SUM(o.total) AS "Сумма покупок"
 FROM auth_user u
 LEFT JOIN cafe_order o ON o.user_id = u.id
 GROUP BY u.id, u.username;
 
--- Dashboard 4: Time
--- Peak hours by orders
-SELECT EXTRACT(HOUR FROM created_at) AS hour_of_day, COUNT(*) AS orders_count
+-- Дашборд 4: Время
+-- Пиковые часы по заказам
+-- Рекомендация Metabase: столбчатая диаграмма. X = Час дня, Y = Количество заказов.
+SELECT EXTRACT(HOUR FROM created_at) AS "Час дня", COUNT(*) AS "Количество заказов"
 FROM cafe_order
-GROUP BY hour_of_day
-ORDER BY hour_of_day;
+GROUP BY "Час дня"
+ORDER BY "Час дня";
 
--- Revenue by day of week
-SELECT EXTRACT(DOW FROM created_at) AS day_of_week, SUM(total) AS revenue
+-- Выручка по дням недели
+-- Рекомендация Metabase: столбчатая диаграмма. X = День недели, Y = Выручка.
+SELECT EXTRACT(DOW FROM created_at) AS "День недели", SUM(total) AS "Выручка"
 FROM cafe_order
-GROUP BY day_of_week
-ORDER BY day_of_week;
+GROUP BY "День недели"
+ORDER BY "День недели";
+
+-- Дашборд 5: Операции
+-- Заказы по статусам
+-- Рекомендация Metabase: круговая диаграмма или столбчатая диаграмма. Категория = Статус, значение = Количество заказов.
+SELECT status AS "Статус", COUNT(*) AS "Количество заказов", SUM(total) AS "Выручка"
+FROM cafe_order
+GROUP BY status
+ORDER BY "Количество заказов" DESC;
+
+-- Доставка и самовывоз
+-- Рекомендация Metabase: круговая диаграмма для долей или столбчатая диаграмма для сравнения выручки.
+SELECT
+    delivery_type AS "Способ получения",
+    COUNT(*) AS "Количество заказов",
+    SUM(total) AS "Выручка",
+    AVG(total) AS "Средний чек"
+FROM cafe_order
+GROUP BY delivery_type
+ORDER BY "Количество заказов" DESC;
+
+-- Воронка событий по дням
+-- Рекомендация Metabase: stacked bar chart. X = Дата, серия = Тип события, Y = Количество событий.
+SELECT
+    DATE(timestamp) AS "Дата",
+    event_type AS "Тип события",
+    COUNT(*) AS "Количество событий"
+FROM cafe_eventlog
+GROUP BY DATE(timestamp), event_type
+ORDER BY "Дата", "Тип события";
+
+-- Добавления в корзину по товарам
+-- Рекомендация Metabase: горизонтальная столбчатая диаграмма. X = Добавлений в корзину, Y = Товар.
+SELECT
+    p.name AS "Товар",
+    COUNT(*) AS "Добавлений в корзину"
+FROM cafe_eventlog e
+JOIN cafe_product p ON p.id = CAST(e.metadata_json ->> 'product_id' AS integer)
+WHERE e.event_type = 'added_to_cart'
+  AND e.metadata_json ? 'product_id'
+GROUP BY p.name
+ORDER BY "Добавлений в корзину" DESC
+LIMIT 10;
+
+-- Карточки для ежедневного email-отчета
+-- Важно: используем Europe/Moscow, чтобы Metabase и Django одинаково понимали "вчера".
+-- Эти запросы сохраняются отдельными карточками и их ID записываются в .env.
+
+-- METABASE_REVENUE_CARD_ID: выручка за вчера
+-- Рекомендация Metabase: число.
+SELECT COALESCE(SUM(total), 0) AS "Выручка"
+FROM cafe_order
+WHERE DATE(created_at AT TIME ZONE 'Europe/Moscow') =
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day');
+
+-- METABASE_ORDERS_CARD_ID: количество заказов за вчера
+-- Рекомендация Metabase: число.
+SELECT COUNT(*) AS "Количество заказов"
+FROM cafe_order
+WHERE DATE(created_at AT TIME ZONE 'Europe/Moscow') =
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day');
+
+-- METABASE_AVG_CHECK_CARD_ID: средний чек за вчера
+-- Рекомендация Metabase: число.
+SELECT COALESCE(AVG(total), 0) AS "Средний чек"
+FROM cafe_order
+WHERE DATE(created_at AT TIME ZONE 'Europe/Moscow') =
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day');
+
+-- METABASE_NEW_CLIENTS_CARD_ID: новые клиенты за вчера
+-- Рекомендация Metabase: число.
+SELECT COUNT(*) AS "Новые клиенты"
+FROM auth_user
+WHERE DATE(date_joined AT TIME ZONE 'Europe/Moscow') =
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day');
+
+-- METABASE_TOP_PRODUCTS_CARD_ID: топ-3 товара за вчера
+-- Рекомендация Metabase: таблица.
+SELECT
+    p.name AS "Товар",
+    SUM(oi.quantity) AS "Количество"
+FROM cafe_orderitem oi
+JOIN cafe_product p ON p.id = oi.product_id
+JOIN cafe_order o ON o.id = oi.order_id
+WHERE DATE(o.created_at AT TIME ZONE 'Europe/Moscow') =
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day')
+GROUP BY p.name
+ORDER BY "Количество" DESC
+LIMIT 3;

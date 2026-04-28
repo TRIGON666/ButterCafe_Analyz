@@ -5,10 +5,12 @@ from django.core.management import call_command
 from django.db import transaction
 import logging
 from django.db.models import Q, Sum
-from .forms import OrderCreateForm
+from django.urls import reverse
+from .forms import OrderCreateForm, ProfileUpdateForm
 from .models import Category, Product, Cart, CartItem, Order, OrderItem, UserProfile, EventLog
 from django.http import JsonResponse
 from django.template.loader import render_to_string
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 def get_cart(request):
@@ -27,8 +29,11 @@ def get_cart_items_count(request):
     )['total'] or 0
 
 
-def get_cart_queryset(cart):
-    return cart.items.select_related('product', 'product__category')
+def get_cart_queryset(cart, available_only=False):
+    queryset = cart.items.select_related('product', 'product__category')
+    if available_only:
+        queryset = queryset.filter(product__available=True)
+    return queryset
 
 
 def get_delivery_price(delivery_type, has_items=True):
@@ -49,6 +54,7 @@ def log_event(event_type, user=None, metadata=None):
         metadata_json=metadata or {}
     )
 
+@ensure_csrf_cookie
 def home(request):
     categories = Category.objects.all()
     featured_products = Product.objects.filter(available=True).select_related('category')[:6]
@@ -66,6 +72,7 @@ def home(request):
     }
     return render(request, 'home.html', context)
 
+@ensure_csrf_cookie
 def menu(request):
     categories = Category.objects.all()
     products = Product.objects.filter(available=True).select_related('category')
@@ -94,6 +101,7 @@ def menu(request):
     }
     return render(request, 'menu.html', context)
 
+@ensure_csrf_cookie
 def cart(request):
     cart = get_cart(request)
     cart_items = get_cart_queryset(cart)
@@ -166,7 +174,7 @@ def product_modal(request, product_id):
 
 def order_modal(request):
     cart = get_cart(request)
-    cart_items = get_cart_queryset(cart)
+    cart_items = get_cart_queryset(cart, available_only=True)
     items_price = sum(item.total_price for item in cart_items)
     delivery_price = get_delivery_price('pickup_10a', bool(items_price))
     total = items_price + delivery_price
@@ -200,6 +208,14 @@ def order_create(request):
     cart_items = list(get_cart_queryset(cart))
     if not cart_items:
         return JsonResponse({'success': False, 'errors': ['Корзина пуста']}, status=400)
+
+    unavailable_items = [item for item in cart_items if not item.product.available]
+    if unavailable_items:
+        names = ', '.join(item.product.name for item in unavailable_items)
+        return JsonResponse({
+            'success': False,
+            'errors': [f'Удалите из корзины недоступные товары: {names}'],
+        }, status=400)
 
     items_price = sum(item.total_price for item in cart_items)
     form = OrderCreateForm(request.POST)
@@ -260,6 +276,7 @@ def order_create(request):
                     'delivery_price': float(order.delivery_price),
                     'total': float(order.total),
                     'items_count': sum(item.quantity for item in cart_items),
+                    'cart_session_key': cart.session_key,
                 }
             )
 
@@ -281,7 +298,17 @@ def order_create(request):
                 profile.save(update_fields=['phone', 'default_address'])
 
             cart.items.all().delete()
-            return JsonResponse({'success': True})
+            request.session['last_order_id'] = order.id
+            recent_order_ids = request.session.get('recent_order_ids', [])
+            recent_order_ids = [int(item) for item in recent_order_ids if str(item).isdigit()]
+            request.session['recent_order_ids'] = [order.id] + [
+                item for item in recent_order_ids if item != order.id
+            ][:4]
+            return JsonResponse({
+                'success': True,
+                'order_id': order.id,
+                'order_url': reverse('cafe:order_success', args=[order.id]),
+            })
     except Exception as e:
         logging.error("Failed to create order", exc_info=True)
         return JsonResponse({'success': False, 'errors': ['Не удалось оформить заказ. Попробуйте позже.']}, status=500)
@@ -298,23 +325,45 @@ def addresses(request):
     })
 
 
-@login_required
-def toggle_favorite(request, product_id):
-    if request.method == 'POST':
-        product = get_object_or_404(Product, id=product_id)
-        profile = get_or_create_user_profile(request.user)
-        
-        if product in profile.favorite_products.all():
-            profile.favorite_products.remove(product)
-            is_favorite = False
-        else:
-            profile.favorite_products.add(product)
-            is_favorite = True
-            
-        return JsonResponse({'success': True, 'is_favorite': is_favorite})
-    return JsonResponse({'success': False}, status=400)
+def order_success(request, order_id):
+    queryset = Order.objects.prefetch_related('items__product')
+    if request.user.is_authenticated:
+        order = get_object_or_404(queryset, id=order_id, user=request.user)
+    else:
+        recent_order_ids = {
+            int(item)
+            for item in request.session.get('recent_order_ids', [])
+            if str(item).isdigit()
+        }
+        last_order_id = request.session.get('last_order_id')
+        if order_id not in recent_order_ids and last_order_id != order_id:
+            messages.error(request, 'Заказ недоступен для просмотра.')
+            return redirect('cafe:home')
+        order = get_object_or_404(queryset, id=order_id)
+
+    return render(request, 'order_success.html', {
+        'order': order,
+        'cart_items_count': get_cart_items_count(request),
+    })
+
 
 @login_required
+@require_POST
+def toggle_favorite(request, product_id):
+    product = get_object_or_404(Product, id=product_id, available=True)
+    profile = get_or_create_user_profile(request.user)
+
+    if profile.favorite_products.filter(pk=product.pk).exists():
+        profile.favorite_products.remove(product)
+        is_favorite = False
+    else:
+        profile.favorite_products.add(product)
+        is_favorite = True
+
+    return JsonResponse({'success': True, 'is_favorite': is_favorite})
+
+@login_required
+@ensure_csrf_cookie
 def favorites(request):
     profile = get_or_create_user_profile(request.user)
     fav_products = profile.favorite_products.filter(available=True)
@@ -345,13 +394,19 @@ def profile(request):
                 messages.error(request, f'Ошибка выполнения: {exc}')
             return redirect('cafe:profile')
 
-        # Regular profile update
-        request.user.first_name = request.POST.get('name', '').strip()
-        request.user.email = request.POST.get('email', '').strip()
+        form = ProfileUpdateForm(request.POST, user=request.user)
+        if not form.is_valid():
+            for field_errors in form.errors.values():
+                for error in field_errors:
+                    messages.error(request, error)
+            return redirect('cafe:profile')
+
+        request.user.first_name = form.cleaned_data['name']
+        request.user.email = form.cleaned_data['email']
         request.user.save(update_fields=['first_name', 'email'])
 
-        profile_obj.phone = request.POST.get('phone', '').strip()
-        profile_obj.default_address = request.POST.get('default_address', '').strip()
+        profile_obj.phone = form.cleaned_data['phone']
+        profile_obj.default_address = form.cleaned_data['default_address']
         profile_obj.save(update_fields=['phone', 'default_address'])
 
         messages.success(request, 'Профиль обновлен')
@@ -382,8 +437,11 @@ def order_history(request):
 def repeat_order(request, order_id):
     order = get_object_or_404(Order.objects.prefetch_related('items__product'), id=order_id, user=request.user)
     cart = get_cart(request)
+    added_items_count = 0
 
     for order_item in order.items.all():
+        if not order_item.product.available:
+            continue
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart,
             product=order_item.product,
@@ -392,6 +450,10 @@ def repeat_order(request, order_id):
         if not created:
             cart_item.quantity += order_item.quantity
             cart_item.save()
+        added_items_count += order_item.quantity
 
-    messages.success(request, f'Товары из заказа #{order.id} добавлены в корзину')
+    if added_items_count:
+        messages.success(request, f'Доступные товары из заказа #{order.id} добавлены в корзину')
+    else:
+        messages.warning(request, f'В заказе #{order.id} не осталось доступных товаров')
     return redirect('cafe:cart')

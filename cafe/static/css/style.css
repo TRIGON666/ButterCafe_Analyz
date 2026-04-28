@@ -320,6 +320,14 @@ button,
     transform: translateY(-1px);
 }
 
+.order-btn:disabled,
+.btn:disabled,
+.is-loading {
+    opacity: 0.68;
+    cursor: wait !important;
+    transform: none !important;
+}
+
 .hero-text .order-btn {
     min-height: 62px;
     font-size: 22px;

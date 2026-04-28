@@ -3,8 +3,9 @@ import math
 from datetime import datetime, timedelta
 from io import BytesIO
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Count, Sum
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Max, Sum
 from django.db.models.functions import ExtractHour, TruncDate, TruncMonth, TruncWeek
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -16,6 +17,7 @@ from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from cafe.models import EventLog, Order, OrderItem
+from cafe.services.metabase import build_dashboard_embed_url, configured_missing_settings
 
 
 PERIOD_PRESETS = {
@@ -46,7 +48,7 @@ def _resolve_period(request):
     elif period == 'week':
         start_date = end_date - timedelta(days=end_date.weekday())
     elif period == 'custom' and start_date:
-        pass
+        period = 'custom'
     else:
         start_date = end_date - timedelta(days=PERIOD_PRESETS.get(period, 13))
         period = period if period in PERIOD_PRESETS else '14d'
@@ -71,8 +73,14 @@ def _group_config(group_by):
 
 def _weighted_forecast(end_date):
     forecast_start = end_date - timedelta(days=27)
-    item_qs = OrderItem.objects.filter(order__created_at__date__gte=forecast_start, order__created_at__date__lte=end_date)
-    orders_qs = Order.objects.filter(created_at__date__gte=forecast_start, created_at__date__lte=end_date)
+    item_qs = OrderItem.objects.filter(
+        order__created_at__date__gte=forecast_start,
+        order__created_at__date__lte=end_date,
+    ).exclude(order__status='cancelled')
+    orders_qs = Order.objects.filter(
+        created_at__date__gte=forecast_start,
+        created_at__date__lte=end_date,
+    ).exclude(status='cancelled')
 
     weights = [1, 2, 3, 5]
     weekly_revenue = []
@@ -156,10 +164,14 @@ def _build_analytics_payload(request):
     trunc_expression, label_format = _group_config(group_by)
 
     orders_qs = Order.objects.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
-    items_qs = OrderItem.objects.filter(order__created_at__date__gte=start_date, order__created_at__date__lte=end_date)
+    sales_orders_qs = orders_qs.exclude(status='cancelled')
+    items_qs = OrderItem.objects.filter(
+        order__created_at__date__gte=start_date,
+        order__created_at__date__lte=end_date,
+    ).exclude(order__status='cancelled')
 
     daily_stats = list(
-        orders_qs.annotate(period=trunc_expression)
+        sales_orders_qs.annotate(period=trunc_expression)
         .values('period')
         .annotate(revenue=Sum('total'), orders_count=Count('id'))
         .order_by('period')
@@ -168,25 +180,123 @@ def _build_analytics_payload(request):
     daily_revenue = [float(item['revenue'] or 0) for item in daily_stats]
     daily_orders = [item['orders_count'] for item in daily_stats]
 
+    line_revenue = ExpressionWrapper(
+        F('quantity') * F('price'),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
     top_products = list(
-        items_qs.values('product__name')
-        .annotate(quantity=Sum('quantity'), revenue=Sum('price'))
+        items_qs.alias(line_revenue=line_revenue)
+        .values('product__name')
+        .annotate(
+            quantity=Sum('quantity'),
+            revenue=Sum('line_revenue'),
+        )
         .order_by('-quantity', 'product__name')[:8]
     )
     top_product_labels = [item['product__name'] for item in top_products]
     top_product_values = [int(item['quantity'] or 0) for item in top_products]
 
+    abc_products = []
+    product_revenue_rows = list(
+        items_qs.alias(line_revenue=line_revenue)
+        .values('product__name')
+        .annotate(
+            quantity=Sum('quantity'),
+            revenue=Sum('line_revenue'),
+        )
+        .order_by('-revenue', 'product__name')
+    )
+    products_revenue_total = sum(float(item['revenue'] or 0) for item in product_revenue_rows)
+    cumulative_revenue = 0
+    for item in product_revenue_rows[:12]:
+        revenue = float(item['revenue'] or 0)
+        share = round((revenue / products_revenue_total * 100), 2) if products_revenue_total else 0
+        cumulative_revenue += revenue
+        cumulative_share = (cumulative_revenue / products_revenue_total * 100) if products_revenue_total else 0
+        abc_class = 'A'
+        if cumulative_share > 95:
+            abc_class = 'C'
+        elif cumulative_share > 80:
+            abc_class = 'B'
+        abc_products.append(
+            {
+                'name': item['product__name'] or 'Без названия',
+                'quantity': int(item['quantity'] or 0),
+                'revenue': revenue,
+                'share': share,
+                'cumulative_share': round(min(cumulative_share, 100), 2),
+                'abc_class': abc_class,
+            }
+        )
+
+    events_qs = EventLog.objects.filter(timestamp__date__gte=start_date, timestamp__date__lte=end_date)
     events_stats = list(
-        EventLog.objects.filter(timestamp__date__gte=start_date, timestamp__date__lte=end_date)
-        .values('event_type')
+        events_qs.values('event_type')
         .annotate(total=Count('id'))
         .order_by('event_type')
     )
     event_labels = [item['event_type'] for item in events_stats]
     event_values = [item['total'] for item in events_stats]
 
+    event_totals = {item['event_type']: item['total'] for item in events_stats}
+    cart_session_keys = set()
+    order_session_keys = set()
+    for event in events_qs.filter(event_type__in=['added_to_cart', 'order_created']).values('event_type', 'metadata_json'):
+        metadata = event.get('metadata_json') or {}
+        session_key = metadata.get('cart_session_key')
+        if not session_key:
+            continue
+        if event['event_type'] == 'added_to_cart':
+            cart_session_keys.add(session_key)
+        elif event['event_type'] == 'order_created':
+            order_session_keys.add(session_key)
+
+    if cart_session_keys:
+        cart_additions = len(cart_session_keys)
+        created_orders_events = len(cart_session_keys & order_session_keys)
+        cart_to_order_conversion = round(created_orders_events / cart_additions * 100, 2)
+        funnel_cart_label = 'Сессий с добавлением в корзину'
+        funnel_order_label = 'Сессий с оформленным заказом'
+        funnel_conversion_label = 'Конверсия сессий с корзиной в заказ'
+    else:
+        cart_additions = int(event_totals.get('added_to_cart', 0))
+        created_orders_events = int(event_totals.get('order_created', 0))
+        cart_to_order_conversion = round(created_orders_events / cart_additions * 100, 2) if cart_additions else 0
+        funnel_cart_label = 'Добавлений товаров в корзину'
+        funnel_order_label = 'Событий оформления заказа'
+        funnel_conversion_label = 'Конверсия добавлений в корзину в заказ'
+
+    status_stats = list(
+        orders_qs.values('status')
+        .annotate(orders_count=Count('id'), revenue=Sum('total'))
+        .order_by('-orders_count', 'status')
+    )
+    status_labels = dict(Order.STATUS_CHOICES)
+    for item in status_stats:
+        item['status_label'] = status_labels.get(item['status'], item['status'])
+
+    delivery_stats = list(
+        sales_orders_qs.values('delivery_type')
+        .annotate(orders_count=Count('id'), revenue=Sum('total'))
+        .order_by('-orders_count', 'delivery_type')
+    )
+    delivery_labels = dict(Order.DELIVERY_CHOICES)
+    for item in delivery_stats:
+        item['delivery_label'] = delivery_labels.get(item['delivery_type'], item['delivery_type'])
+
+    rfm_customers = list(
+        sales_orders_qs.filter(user__isnull=False)
+        .values('user__username')
+        .annotate(
+            last_order_at=Max('created_at'),
+            frequency=Count('id'),
+            monetary=Sum('total'),
+        )
+        .order_by('-monetary', '-frequency', 'user__username')[:10]
+    )
+
     hourly_stats = list(
-        orders_qs.annotate(hour=ExtractHour('created_at'))
+        sales_orders_qs.annotate(hour=ExtractHour('created_at'))
         .values('hour')
         .annotate(total=Count('id'))
         .order_by('hour')
@@ -194,12 +304,27 @@ def _build_analytics_payload(request):
     hourly_labels = [f"{int(item['hour']):02d}:00" for item in hourly_stats if item['hour'] is not None]
     hourly_values = [item['total'] for item in hourly_stats if item['hour'] is not None]
 
-    totals = orders_qs.aggregate(revenue=Sum('total'), orders_count=Count('id'))
+    totals = sales_orders_qs.aggregate(revenue=Sum('total'), orders_count=Count('id'))
     total_revenue = float(totals['revenue'] or 0)
     total_orders = int(totals['orders_count'] or 0)
     avg_check = round(total_revenue / total_orders, 2) if total_orders else 0
 
     forecast = _weighted_forecast(end_date)
+
+    recommendations = []
+    if forecast['forecast_products']:
+        leader = forecast['forecast_products'][0]
+        recommendations.append(
+            f'Подготовить запас товара "{leader["name"]}" на неделю: прогноз {leader["expected_quantity"]} шт.'
+        )
+    if top_product_labels:
+        recommendations.append(f'Сделать акцент в витрине на товар "{top_product_labels[0]}" как лидер продаж периода.')
+    if cart_additions and cart_to_order_conversion < 40:
+        recommendations.append('Конверсия корзины в заказ ниже 40%: стоит проверить оформление заказа и условия доставки.')
+    if total_orders and avg_check < 700:
+        recommendations.append('Средний чек ниже 700 руб.: можно предложить наборы или комбо-позиции.')
+    if not recommendations:
+        recommendations.append('Данных пока недостаточно для автоматических рекомендаций.')
 
     return {
         'start_date': start_date,
@@ -208,7 +333,18 @@ def _build_analytics_payload(request):
         'group_by': group_by,
         'daily_stats': daily_stats,
         'top_products': top_products,
+        'abc_products': abc_products,
         'events_stats': events_stats,
+        'status_stats': status_stats,
+        'delivery_stats': delivery_stats,
+        'rfm_customers': rfm_customers,
+        'cart_additions': cart_additions,
+        'created_orders_events': created_orders_events,
+        'cart_to_order_conversion': cart_to_order_conversion,
+        'funnel_cart_label': funnel_cart_label,
+        'funnel_order_label': funnel_order_label,
+        'funnel_conversion_label': funnel_conversion_label,
+        'recommendations': recommendations,
         'hourly_stats': hourly_stats,
         'total_revenue': total_revenue,
         'total_orders': total_orders,
@@ -247,6 +383,26 @@ def analytics_dashboard(request):
         'forecast_orders_json': json.dumps(payload['forecast_orders']),
     }
     return render(request, 'admin/analytics_dashboard.html', context)
+
+
+@staff_member_required
+def metabase_dashboard(request):
+    missing_settings = configured_missing_settings()
+    context = {
+        'title': 'Metabase ButterCafe',
+        'metabase_url': build_dashboard_embed_url() if not missing_settings else None,
+        'missing_settings': missing_settings,
+        'metabase_base_url': getattr(settings, 'METABASE_URL', ''),
+        'metabase_dashboard_id': getattr(settings, 'METABASE_DASHBOARD_ID', ''),
+        'metabase_card_ids': {
+            'revenue': getattr(settings, 'METABASE_REVENUE_CARD_ID', ''),
+            'orders': getattr(settings, 'METABASE_ORDERS_CARD_ID', ''),
+            'avg_check': getattr(settings, 'METABASE_AVG_CHECK_CARD_ID', ''),
+            'new_clients': getattr(settings, 'METABASE_NEW_CLIENTS_CARD_ID', ''),
+            'top_products': getattr(settings, 'METABASE_TOP_PRODUCTS_CARD_ID', ''),
+        },
+    }
+    return render(request, 'admin/metabase_dashboard.html', context)
 
 
 @staff_member_required

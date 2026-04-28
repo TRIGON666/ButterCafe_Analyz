@@ -107,6 +107,7 @@
 
   #summary,
   #forecast,
+  #advanced,
   #charts {
     scroll-margin-top: 96px;
   }
@@ -370,6 +371,56 @@
     color: var(--bc-soft-text);
   }
 
+  .analytics-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .analytics-table th,
+  .analytics-table td {
+    padding: 11px 10px;
+    border-bottom: 1px solid rgba(177, 133, 108, 0.22);
+    color: var(--bc-text);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  .analytics-table th {
+    color: var(--bc-accent);
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .metric-pill {
+    display: inline-flex;
+    min-height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0 10px;
+    background: rgba(177, 133, 108, 0.16);
+    color: var(--bc-accent);
+    font-weight: 900;
+  }
+
+  .recommendation-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .recommendation-list li {
+    padding: 12px 14px;
+    border: 1px solid var(--bc-border);
+    border-radius: 12px;
+    background: var(--bc-muted);
+    color: var(--bc-text);
+    font-weight: 700;
+  }
+
   html.dark .analytics-hero,
   body.dark .analytics-hero {
     background:
@@ -505,13 +556,15 @@
       <div class="analytics-menu-title">Аналитика</div>
       <a class="analytics-menu-link is-active" href="#summary">Сводка <span>01</span></a>
       <a class="analytics-menu-link" href="#forecast">Прогноз <span>02</span></a>
-      <a class="analytics-menu-link" href="#charts">Графики <span>03</span></a>
+      <a class="analytics-menu-link" href="#advanced">BI-анализ <span>03</span></a>
+      <a class="analytics-menu-link" href="#charts">Графики <span>04</span></a>
     </div>
     <div class="analytics-menu-card">
       <div class="analytics-menu-title">Разделы</div>
       <a class="analytics-menu-link" href="{% url 'admin:cafe_order_changelist' %}">Заказы <span>→</span></a>
       <a class="analytics-menu-link" href="{% url 'admin:cafe_product_changelist' %}">Товары <span>→</span></a>
       <a class="analytics-menu-link" href="{% url 'admin:cafe_cart_changelist' %}">Корзины <span>→</span></a>
+      <a class="analytics-menu-link" href="{% url 'admin_metabase_dashboard' %}">Metabase <span>→</span></a>
       <a class="analytics-menu-link" href="{% url 'admin:index' %}">Админка <span>→</span></a>
     </div>
   </nav>
@@ -665,6 +718,157 @@
     </article>
   </section>
 
+  <section class="analytics-panel" id="advanced">
+    <div class="panel-head">
+      <div>
+        <h2>Рекомендации системы</h2>
+        <p>Автоматические выводы на основе продаж, событий и прогноза спроса.</p>
+      </div>
+    </div>
+    <ul class="recommendation-list">
+      {% for recommendation in recommendations %}
+      <li>{{ recommendation }}</li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="insight-grid">
+    <article class="insight-card">
+      <strong>{{ cart_additions }}</strong>
+      <span>{{ funnel_cart_label }} за период.</span>
+    </article>
+    <article class="insight-card">
+      <strong>{{ created_orders_events }}</strong>
+      <span>{{ funnel_order_label }} за период.</span>
+    </article>
+    <article class="insight-card">
+      <strong>{{ cart_to_order_conversion|floatformat:2 }}%</strong>
+      <span>{{ funnel_conversion_label }}.</span>
+    </article>
+  </section>
+
+  <section class="charts-grid">
+    <div class="analytics-panel chart-wide">
+      <div class="panel-head">
+        <div>
+          <h2>ABC-анализ товаров</h2>
+          <p>Класс A дает основную выручку, B поддерживает ассортимент, C требует пересмотра.</p>
+        </div>
+      </div>
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>Товар</th>
+            <th>Класс</th>
+            <th>Продано</th>
+            <th>Выручка</th>
+            <th>Доля</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in abc_products %}
+          <tr>
+            <td>{{ item.name }}</td>
+            <td><span class="metric-pill">{{ item.abc_class }}</span></td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.revenue|floatformat:0 }} ₽</td>
+            <td>{{ item.share|floatformat:2 }}%</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5">Нет данных за выбранный период.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="analytics-panel">
+      <div class="panel-head">
+        <div>
+          <h2>RFM-клиенты</h2>
+          <p>Клиенты с наибольшей суммой и частотой покупок.</p>
+        </div>
+      </div>
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>Клиент</th>
+            <th>Заказы</th>
+            <th>Сумма</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for customer in rfm_customers %}
+          <tr>
+            <td>{{ customer.user__username }}</td>
+            <td>{{ customer.frequency }}</td>
+            <td>{{ customer.monetary|floatformat:0 }} ₽</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3">Нет зарегистрированных клиентов с заказами.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="analytics-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Способы получения</h2>
+          <p>Как клиенты получают заказы и какую выручку дает каждый способ.</p>
+        </div>
+      </div>
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>Способ</th>
+            <th>Заказы</th>
+            <th>Выручка</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in delivery_stats %}
+          <tr>
+            <td>{{ item.delivery_label }}</td>
+            <td>{{ item.orders_count }}</td>
+            <td>{{ item.revenue|floatformat:0 }} ₽</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3">Нет заказов за выбранный период.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="analytics-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Статусы заказов</h2>
+          <p>Текущая нагрузка кухни и выполнение заказов по статусам.</p>
+        </div>
+      </div>
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>Статус</th>
+            <th>Заказы</th>
+            <th>Выручка</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in status_stats %}
+          <tr>
+            <td>{{ item.status_label }}</td>
+            <td>{{ item.orders_count }}</td>
+            <td>{{ item.revenue|floatformat:0 }} ₽</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3">Нет заказов за выбранный период.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="charts-grid" id="charts">
     <div class="analytics-panel">
       <div class="panel-head"><h2>Выручка</h2></div>
@@ -690,7 +894,7 @@
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
 <script>
   const dailyLabels = JSON.parse('{{ daily_labels_json|escapejs }}');
   const dailyRevenue = JSON.parse('{{ daily_revenue_json|escapejs }}');

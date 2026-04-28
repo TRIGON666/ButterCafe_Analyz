@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth.models import User
 
 from .models import Order
 
@@ -23,3 +24,23 @@ class OrderCreateForm(forms.Form):
             self.add_error('address', 'Укажите адрес доставки.')
 
         return cleaned_data
+
+
+class ProfileUpdateForm(forms.Form):
+    name = forms.CharField(max_length=150, strip=True, error_messages={'required': 'Укажите имя.'})
+    phone = forms.CharField(max_length=30, strip=True, error_messages={'required': 'Укажите телефон.'})
+    email = forms.EmailField(error_messages={'required': 'Укажите email.', 'invalid': 'Укажите корректный email.'})
+    default_address = forms.CharField(max_length=255, required=False, strip=True)
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        queryset = User.objects.filter(email__iexact=email)
+        if self.user is not None:
+            queryset = queryset.exclude(pk=self.user.pk)
+        if queryset.exists():
+            raise forms.ValidationError('Пользователь с таким email уже существует.')
+        return email

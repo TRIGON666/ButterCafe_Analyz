@@ -244,12 +244,6 @@
     content: "↗";
 }
 
-.model-socialaccount .admin-model-icon::before,
-.model-socialapp .admin-model-icon::before,
-.model-socialtoken .admin-model-icon::before {
-    content: "@";
-}
-
 .model-site .admin-model-icon::before,
 .model-emailaddress .admin-model-icon::before {
     content: "✉";
@@ -369,7 +363,6 @@
 #nav-sidebar a[href*="/admin/cafe/userprofile/"],
 #nav-sidebar a[href*="/admin/cafe/event/"],
 #nav-sidebar a[href*="/admin/cafe/product/"],
-#nav-sidebar a[href*="/admin/socialaccount/"],
 #nav-sidebar a[href*="/admin/auth/"],
 #nav-sidebar a[href*="/admin/sites/"],
 #nav-sidebar a[href*="/admin/account/emailaddress/"] {
@@ -401,10 +394,6 @@
     --bc-menu-icon: "P";
 }
 
-#nav-sidebar a[href*="/admin/socialaccount/"] {
-    --bc-menu-icon: "@";
-}
-
 #nav-sidebar a[href*="/admin/sites/"] {
     --bc-menu-icon: "S";
 }
@@ -419,7 +408,6 @@
 #nav-sidebar a[href*="/admin/cafe/userprofile/"]::before,
 #nav-sidebar a[href*="/admin/cafe/event/"]::before,
 #nav-sidebar a[href*="/admin/cafe/product/"]::before,
-#nav-sidebar a[href*="/admin/socialaccount/"]::before,
 #nav-sidebar a[href*="/admin/auth/"]::before,
 #nav-sidebar a[href*="/admin/sites/"]::before,
 #nav-sidebar a[href*="/admin/account/emailaddress/"]::before {

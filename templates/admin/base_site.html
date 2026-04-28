@@ -15,10 +15,17 @@
 {# Слот справа в шапке (рядом с темой и аккаунтом), см. unfold/helpers/userlinks.html #}
 {% block nav-global-side %}
 {% url 'admin_analytics_dashboard' as analytics_url %}
+{% url 'admin_metabase_dashboard' as metabase_url %}
 <a href="{{ analytics_url }}"
    class="admin-header-dashboard mr-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-primary-600 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-primary-400{% if '/admin/analytics' in request.path %} bg-gray-100 font-semibold text-primary-600 dark:bg-white/[.06] dark:text-primary-500{% endif %}"
    title="Выручка, заказы, графики">
     <span class="material-symbols-outlined text-[18px]">bar_chart</span>
     <span class="hidden sm:inline">Дашборд</span>
+</a>
+<a href="{{ metabase_url }}"
+   class="admin-header-dashboard mr-1 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-primary-600 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-primary-400{% if '/admin/metabase' in request.path %} bg-gray-100 font-semibold text-primary-600 dark:bg-white/[.06] dark:text-primary-500{% endif %}"
+   title="Metabase BI">
+    <span class="material-symbols-outlined text-[18px]">monitoring</span>
+    <span class="hidden sm:inline">Metabase</span>
 </a>
 {% endblock %}

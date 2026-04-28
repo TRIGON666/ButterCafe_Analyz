@@ -1,6 +1,9 @@
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
+from io import StringIO
 from pathlib import Path
+from smtplib import SMTPException
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -11,6 +14,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from cafe.models import Category, EventLog, Order, OrderItem, Product
+from cafe.services.reporting import DailyMetrics, render_daily_report_html
 
 
 class AnalyticsCommandsTest(TestCase):
@@ -52,7 +56,7 @@ class AnalyticsCommandsTest(TestCase):
 		EventLog.objects.filter(id=self.event.id).update(timestamp=target_dt)
 
 	def test_export_daily_analytics_prepares_expected_files(self):
-		expected_dir = Path(settings.BASE_DIR) / 'data_lake' / '2026' / '04' / '21'
+		expected_dir = Path(settings.ANALYTICS_EXPORT_ROOT) / '2026' / '04' / '21'
 		with (
 			patch('django.utils.timezone.localdate', return_value=date(2026, 4, 22)),
 			patch('cafe.management.commands.export_daily_analytics.Command._export_orders_csv') as orders_csv,
@@ -84,6 +88,46 @@ class AnalyticsCommandsTest(TestCase):
 		self.assertIn('Источник метрик: local-db', sent.body)
 		self.assertIn('owner@test.local', sent.to)
 
+	@override_settings(
+		EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+		OWNER_REPORT_EMAIL='owner@test.local',
+		DEFAULT_FROM_EMAIL='report@test.local',
+		METABASE_USERNAME='',
+		METABASE_PASSWORD='',
+	)
+	def test_generate_daily_report_saves_local_copy_when_email_fails(self):
+		with TemporaryDirectory() as tmp_dir, override_settings(ANALYTICS_EXPORT_ROOT=tmp_dir):
+			with patch(
+				'cafe.management.commands.generate_daily_report.EmailMultiAlternatives.send',
+				side_effect=SMTPException('smtp unavailable'),
+			):
+				output = StringIO()
+				call_command('generate_daily_report', stdout=output)
+
+			self.assertIn('Report was not sent', output.getvalue())
+			report_files = list(Path(tmp_dir).glob('reports/*/*/*/daily_report.txt'))
+			self.assertEqual(len(report_files), 1)
+			self.assertIn('Ежедневный отчет ButterCafe', report_files[0].read_text(encoding='utf-8'))
+
+	def test_daily_report_html_escapes_dynamic_values(self):
+		metrics = DailyMetrics(
+			report_date='28.04.2026',
+			revenue=Decimal('100.00'),
+			orders_count=1,
+			avg_check=Decimal('100.00'),
+			new_clients=0,
+			top_products=[{'product_name': '<script>alert(1)</script>', 'quantity': 1}],
+			recommendations=['<b>Проверить витрину</b>'],
+			source='local-db',
+		)
+
+		html = render_daily_report_html(metrics)
+
+		self.assertNotIn('<script>alert(1)</script>', html)
+		self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', html)
+		self.assertNotIn('<b>Проверить витрину</b>', html)
+		self.assertIn('&lt;b&gt;Проверить витрину&lt;/b&gt;', html)
+
 
 class CartOrderSecurityTest(TestCase):
 	def setUp(self):
@@ -111,3 +155,49 @@ class CartOrderSecurityTest(TestCase):
 		response = self.client.post('/order/create/', data={})
 		self.assertEqual(response.status_code, 400)
 		self.assertEqual(response.json().get('success'), False)
+
+	def test_order_create_returns_success_page_for_guest(self):
+		self.client.post(f'/cart/add/{self.product.id}/')
+
+		response = self.client.post(
+			'/order/create/',
+			data={
+				'name': 'Guest',
+				'phone': '+70000000000',
+				'delivery_type': 'pickup_10a',
+			},
+		)
+
+		self.assertEqual(response.status_code, 200)
+		payload = response.json()
+		self.assertEqual(payload.get('success'), True)
+		self.assertIn('order_url', payload)
+
+		order = Order.objects.get(id=payload['order_id'])
+		self.assertEqual(order.items.count(), 1)
+
+		event = EventLog.objects.get(event_type='order_created', metadata_json__order_id=order.id)
+		self.assertEqual(event.metadata_json.get('cart_session_key'), self.client.session.session_key)
+
+		success_response = self.client.get(payload['order_url'])
+		self.assertEqual(success_response.status_code, 200)
+		self.assertContains(success_response, f'Заказ #{order.id}')
+		self.assertIn(order.id, self.client.session.get('recent_order_ids'))
+
+
+class MetabaseEmbedTest(TestCase):
+	@override_settings(
+		METABASE_URL='http://metabase.test',
+		METABASE_DASHBOARD_ID='7',
+		METABASE_EMBED_SECRET='test-secret',
+		METABASE_EMBED_THEME='light',
+	)
+	def test_dashboard_embed_url_uses_signed_token(self):
+		from cafe.services.metabase import build_dashboard_embed_url
+
+		url = build_dashboard_embed_url()
+
+		self.assertTrue(url.startswith('http://metabase.test/embed/dashboard/'))
+		self.assertIn('#bordered=true&titled=true&theme=light', url)
+		token = url.split('/embed/dashboard/', 1)[1].split('#', 1)[0]
+		self.assertEqual(len(token.split('.')), 3)

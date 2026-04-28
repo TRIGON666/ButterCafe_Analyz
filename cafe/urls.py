@@ -18,6 +18,7 @@ urlpatterns = [
     path('product/<int:product_id>/modal/', views.product_modal, name='product_modal'),
     path('order/modal/', views.order_modal, name='order_modal'),
     path('order/create/', views.order_create, name='order_create'),
+    path('order/success/<int:order_id>/', views.order_success, name='order_success'),
     path('favorite/toggle/<int:product_id>/', views.toggle_favorite, name='toggle_favorite'),
     path('profile/favorites/', views.favorites, name='favorites'),
 ] 
