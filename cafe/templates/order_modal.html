@@ -30,7 +30,7 @@
                     <option value="delivery">Доставка</option>
                 </select>
             </label>
-            <label>Адрес (если доставка):<input type="text" name="address" id="deliveryAddress" value="{{ initial_address }}"></label>
+            <label id="addressBlock">Адрес доставки:<input type="text" name="address" id="deliveryAddress" value="{{ initial_address }}"></label>
             <label>Комментарий:<textarea name="comment"></textarea></label>
             <label>Время к заказу:<input type="text" name="time"></label>
             <label><input type="checkbox" name="need_cutlery" checked> Одноразовые приборы</label>
@@ -43,5 +43,5 @@
         <div class="order-modal-row order-modal-total"><span>Итого:</span> <b><span id="orderTotalPrice">{{ items_price|floatformat:0 }}</span> р.</b></div>
         <button type="submit" class="order-btn order-modal-submit">Оформить заказ</button>
     </div>
-    <button type="button" class="modal-order-close" id="modalOrderClose">×</button>
+    <button type="button" class="modal-order-close" id="modalOrderClose"><i class="fa-solid fa-xmark"></i></button>
 </form> 

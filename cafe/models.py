@@ -80,6 +80,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile', verbose_name='Пользователь')
     phone = models.CharField(max_length=30, blank=True, verbose_name='Телефон')
     default_address = models.CharField(max_length=255, blank=True, verbose_name='Адрес по умолчанию')
+    favorite_products = models.ManyToManyField(Product, blank=True, related_name='favorited_by', verbose_name='Любимые товары')
 
     class Meta:
         verbose_name = 'Профиль пользователя'

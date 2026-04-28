@@ -7,30 +7,67 @@
     <div class="lk-tabs">
         <a href="{% url 'cafe:profile' %}" class="lk-tab active">Профиль</a>
         <a href="{% url 'cafe:order_history' %}" class="lk-tab">История заказов</a>
+        <a href="{% url 'cafe:favorites' %}" class="lk-tab">Любимое</a>
+        {% if request.user.is_staff %}
+        <a href="{% url 'admin:index' %}" class="lk-tab admin-tab" style="background:#f0e2d2; border-color:#d4a574;">Админка</a>
+        <a href="{% url 'admin_analytics_dashboard' %}" class="lk-tab admin-tab" style="background:#f0e2d2; border-color:#d4a574;">Аналитика</a>
+        {% endif %}
     </div>
 
-    <div class="lk-card">
+    <div class="lk-card mb-4">
         <h1 class="lk-title">Личный кабинет</h1>
         <form method="post" class="lk-form">
             {% csrf_token %}
-            <label class="lk-label">
-                Имя
-                <input type="text" name="name" value="{{ request.user.first_name }}" class="lk-input" required>
-            </label>
-            <label class="lk-label">
-                Телефон
-                <input type="text" name="phone" value="{{ profile_obj.phone }}" class="lk-input" required>
-            </label>
-            <label class="lk-label">
-                Email
-                <input type="email" name="email" value="{{ request.user.email }}" class="lk-input" required>
-            </label>
-            <label class="lk-label">
-                Адрес доставки по умолчанию
-                <input type="text" name="default_address" value="{{ profile_obj.default_address }}" class="lk-input">
-            </label>
-            <button type="submit" class="order-btn lk-save-btn">Сохранить</button>
+            <div class="auth-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                <label class="lk-label">
+                    Имя
+                    <input type="text" name="name" value="{{ request.user.first_name }}" class="lk-input" required>
+                </label>
+                <label class="lk-label">
+                    Телефон
+                    <input type="text" name="phone" value="{{ profile_obj.phone }}" class="lk-input" required>
+                </label>
+                <label class="lk-label">
+                    Email
+                    <input type="email" name="email" value="{{ request.user.email }}" class="lk-input" required>
+                </label>
+                <label class="lk-label">
+                    Адрес доставки по умолчанию
+                    <input type="text" name="default_address" value="{{ profile_obj.default_address }}" class="lk-input">
+                </label>
+            </div>
+            <div class="auth-actions-row" style="margin-top:20px;">
+                <button type="submit" class="order-btn lk-save-btn">Сохранить изменения</button>
+            </div>
         </form>
     </div>
+
+    {% if request.user.is_staff %}
+    <div class="lk-card admin-profile-card">
+        <h2 class="lk-title">Инструменты администратора</h2>
+        <p class="admin-profile-subtitle" style="margin-bottom: 20px; color: var(--ui-accent-dark);">Быстрые действия и выгрузки.</p>
+        
+        <div class="admin-actions-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <a href="{% url 'admin_analytics_dashboard_pdf' %}" style="padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); text-decoration: none; color: var(--ui-text); display: block; background: var(--ui-surface);">
+                <div style="font-weight: 700; color: var(--ui-accent); margin-bottom: 6px;"><i class="fa-solid fa-download"></i>&nbsp; Скачать PDF отчет</div>
+                <div style="font-size: 13px;">Скачивает аналитический отчет в формате PDF.</div>
+            </a>
+
+            <form method="post" style="padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); display: flex; flex-direction: column; justify-content: space-between;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="export_daily_analytics">
+                <div style="font-size: 13px; margin-bottom: 12px;">Создает orders.csv, orders.json и events.csv за прошлый день.</div>
+                <button type="submit" class="order-btn" style="width: 100%; min-height: 40px; font-size: 14px;"><i class="fa-solid fa-file-export"></i>&nbsp; Экспорт аналитики</button>
+            </form>
+
+            <form method="post" style="padding: 16px; border: 1px solid var(--ui-border); border-radius: var(--ui-radius); background: var(--ui-surface); display: flex; flex-direction: column; justify-content: space-between;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="generate_daily_report">
+                <div style="font-size: 13px; margin-bottom: 12px;">Формирует и отправляет ежедневный отчет владельцу на email.</div>
+                <button type="submit" class="order-btn" style="width: 100%; min-height: 40px; font-size: 14px;"><i class="fa-solid fa-paper-plane"></i>&nbsp; Отправить отчет на почту</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

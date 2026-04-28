@@ -118,6 +118,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.closest('.add-to-cart-btn')) {
             return;
         }
+        if (e.target.closest('.product-fav-toggle') || e.target.classList.contains('product-fav-toggle')) {
+            return; // Prevent clicking on fav icon to open modal
+        }
         var link = e.target.closest('.product-link');
         if (link && link.dataset.id) {
             e.preventDefault();
@@ -253,11 +256,16 @@ function setupOrderTotals() {
     var itemsPrice = Number(itemsPriceEl.dataset.value || itemsPriceEl.textContent || 0);
 
     function refreshTotals() {
-        var deliveryPrice = deliveryType.value === 'delivery' ? 100 : 0;
+        var isDelivery = deliveryType.value === 'delivery';
+        var deliveryPrice = isDelivery ? 100 : 0;
         deliveryPriceEl.textContent = deliveryPrice;
         totalPriceEl.textContent = itemsPrice + deliveryPrice;
         if (address) {
-            address.required = deliveryType.value === 'delivery';
+            address.required = isDelivery;
+            var addressBlock = document.getElementById('addressBlock');
+            if (addressBlock) {
+                addressBlock.style.display = isDelivery ? 'flex' : 'none';
+            }
         }
     }
 
@@ -271,3 +279,45 @@ function closeOrderModal() {
     modal.classList.remove('active');
     setTimeout(function() { modal.style.display = 'none'; }, 200);
 }
+
+document.addEventListener('DOMContentLoaded', function() {
+    var favToggles = document.querySelectorAll('.product-fav-toggle');
+    favToggles.forEach(function(toggle) {
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var productId = this.dataset.id;
+            var el = this;
+            fetch('/favorite/toggle/' + productId + '/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.is_favorite) {
+                        el.innerHTML = '<i class="fa-solid fa-heart"></i>';
+                    } else {
+                        el.innerHTML = '<i class="fa-regular fa-heart"></i>';
+                        // If we are on favorites page, maybe remove the card
+                        if (window.location.pathname.indexOf('favorites') !== -1) {
+                            el.closest('.product-card').remove();
+                            // Optional: show "empty" message if no cards left
+                            if(document.querySelectorAll('.product-card').length === 0) {
+                                window.location.reload();
+                            }
+                        }
+                    }
+                } else {
+                    showToast('Ошибка при изменении избранного.');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                showToast('Ошибка сети.');
+            });
+        });
+    });
+});

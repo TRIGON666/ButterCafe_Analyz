@@ -25,15 +25,15 @@
                                 <p style="color: #B1856C; font-weight: 600; font-size: 18px; margin: 0;">{{ item.total_price }} ₽</p>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                        <div style="display: flex; gap: 12px; align-items: center; margin-top: 4px;">
                             <form method="post" action="{% url 'cafe:update_cart_item' item.id %}" style="display: flex; gap: 8px; align-items: center;">
                                 {% csrf_token %}
-                                <input type="number" name="quantity" value="{{ item.quantity }}" min="1" style="width: 60px; padding: 6px 8px; border: 1px solid #d8c7b1; border-radius: 8px; font-size: 14px;">
-                                <button type="submit" class="btn">Обновить</button>
+                                <input type="number" name="quantity" value="{{ item.quantity }}" min="1" style="width: 60px; padding: 6px 8px; border: 1px solid #d8c7b1; border-radius: 8px; font-size: 14px; color: #6C2A17; outline: none;">
+                                <button type="submit" style="background: transparent; border: 1px solid #B1856C; color: #B1856C; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"><i class="fa-solid fa-rotate-right"></i> Обновить</button>
                             </form>
                             <form method="post" action="{% url 'cafe:remove_from_cart' item.id %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-danger">Удалить</button>
+                                <button type="submit" style="background: transparent; border: 1px solid #d9534f; color: #d9534f; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"><i class="fa-solid fa-trash-can"></i> Удалить</button>
                             </form>
                         </div>
                     </div>

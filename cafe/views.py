@@ -52,9 +52,16 @@ def log_event(event_type, user=None, metadata=None):
 def home(request):
     categories = Category.objects.all()
     featured_products = Product.objects.filter(available=True).select_related('category')[:6]
+    
+    favorite_product_ids = []
+    if request.user.is_authenticated:
+        profile = get_or_create_user_profile(request.user)
+        favorite_product_ids = list(profile.favorite_products.values_list('id', flat=True))
+
     context = {
         'categories': categories,
         'featured_products': featured_products,
+        'favorite_product_ids': favorite_product_ids,
         'cart_items_count': get_cart_items_count(request)
     }
     return render(request, 'home.html', context)
@@ -73,10 +80,16 @@ def menu(request):
             Q(name__icontains=search_query) |
             Q(description__icontains=search_query)
         )
+        
+    favorite_product_ids = []
+    if request.user.is_authenticated:
+        profile = get_or_create_user_profile(request.user)
+        favorite_product_ids = list(profile.favorite_products.values_list('id', flat=True))
     
     context = {
         'categories': categories,
         'products': products,
+        'favorite_product_ids': favorite_product_ids,
         'cart_items_count': get_cart_items_count(request)
     }
     return render(request, 'menu.html', context)
@@ -286,20 +299,60 @@ def addresses(request):
 
 
 @login_required
-def profile(request):
-    if request.user.is_staff:
-        return redirect('cafe:admin_profile')
+def toggle_favorite(request, product_id):
+    if request.method == 'POST':
+        product = get_object_or_404(Product, id=product_id)
+        profile = get_or_create_user_profile(request.user)
+        
+        if product in profile.favorite_products.all():
+            profile.favorite_products.remove(product)
+            is_favorite = False
+        else:
+            profile.favorite_products.add(product)
+            is_favorite = True
+            
+        return JsonResponse({'success': True, 'is_favorite': is_favorite})
+    return JsonResponse({'success': False}, status=400)
 
+@login_required
+def favorites(request):
+    profile = get_or_create_user_profile(request.user)
+    fav_products = profile.favorite_products.filter(available=True)
+    return render(request, 'favorites.html', {
+        'products': fav_products,
+        'cart_items_count': get_cart_items_count(request)
+    })
+
+@login_required
+def profile(request):
     profile_obj = get_or_create_user_profile(request.user)
 
     if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        # Handle admin actions
+        if request.user.is_staff and action:
+            try:
+                if action == 'export_daily_analytics':
+                    call_command('export_daily_analytics')
+                    messages.success(request, 'Экспорт аналитики выполнен')
+                elif action == 'generate_daily_report':
+                    call_command('generate_daily_report')
+                    messages.success(request, 'Команда отправки отчета выполнена')
+                else:
+                    messages.warning(request, 'Неизвестное действие')
+            except Exception as exc:
+                messages.error(request, f'Ошибка выполнения: {exc}')
+            return redirect('cafe:profile')
+
+        # Regular profile update
         request.user.first_name = request.POST.get('name', '').strip()
         request.user.email = request.POST.get('email', '').strip()
-        request.user.save()
+        request.user.save(update_fields=['first_name', 'email'])
 
         profile_obj.phone = request.POST.get('phone', '').strip()
         profile_obj.default_address = request.POST.get('default_address', '').strip()
-        profile_obj.save()
+        profile_obj.save(update_fields=['phone', 'default_address'])
 
         messages.success(request, 'Профиль обновлен')
         return redirect('cafe:profile')
@@ -311,30 +364,7 @@ def profile(request):
     return render(request, 'profile.html', context)
 
 
-@login_required
-def admin_profile(request):
-    if not request.user.is_staff:
-        return redirect('cafe:profile')
 
-    if request.method == 'POST':
-        action = request.POST.get('action')
-        try:
-            if action == 'export_daily_analytics':
-                call_command('export_daily_analytics')
-                messages.success(request, 'Экспорт аналитики выполнен')
-            elif action == 'generate_daily_report':
-                call_command('generate_daily_report')
-                messages.success(request, 'Команда отправки отчета выполнена')
-            else:
-                messages.warning(request, 'Неизвестное действие')
-        except Exception as exc:
-            messages.error(request, f'Ошибка выполнения команды: {exc}')
-        return redirect('cafe:admin_profile')
-
-    context = {
-        'cart_items_count': get_cart_items_count(request),
-    }
-    return render(request, 'admin_profile.html', context)
 
 
 @login_required

@@ -7,6 +7,11 @@
     <div class="lk-tabs">
         <a href="{% url 'cafe:profile' %}" class="lk-tab">Профиль</a>
         <a href="{% url 'cafe:order_history' %}" class="lk-tab active">История заказов</a>
+        <a href="{% url 'cafe:favorites' %}" class="lk-tab">Любимое</a>
+        {% if request.user.is_staff %}
+        <a href="{% url 'admin:index' %}" class="lk-tab admin-tab" style="background:#f0e2d2; border-color:#d4a574;">Админка</a>
+        <a href="{% url 'admin_analytics_dashboard' %}" class="lk-tab admin-tab" style="background:#f0e2d2; border-color:#d4a574;">Аналитика</a>
+        {% endif %}
     </div>
 
     <div class="lk-card">
