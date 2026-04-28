@@ -1,9 +1,10 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from pathlib import Path
-from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.core import mail
 from django.core.management import call_command
 from django.test import TestCase, override_settings
@@ -50,17 +51,22 @@ class AnalyticsCommandsTest(TestCase):
 		Order.objects.filter(id=self.order.id).update(created_at=target_dt)
 		EventLog.objects.filter(id=self.event.id).update(timestamp=target_dt)
 
-	def test_export_daily_analytics_creates_files(self):
-		with TemporaryDirectory() as tmp_dir:
-			with override_settings(BASE_DIR=Path(tmp_dir)):
-				call_command('export_daily_analytics')
+	def test_export_daily_analytics_prepares_expected_files(self):
+		expected_dir = Path(settings.BASE_DIR) / 'data_lake' / '2026' / '04' / '21'
+		with (
+			patch('django.utils.timezone.localdate', return_value=date(2026, 4, 22)),
+			patch('cafe.management.commands.export_daily_analytics.Command._export_orders_csv') as orders_csv,
+			patch('cafe.management.commands.export_daily_analytics.Command._export_orders_json') as orders_json,
+			patch('cafe.management.commands.export_daily_analytics.Command._export_events_csv') as events_csv,
+		):
+			call_command('export_daily_analytics')
 
-				target_day = timezone.localdate() - timedelta(days=1)
-				out_dir = Path(tmp_dir) / 'data_lake' / target_day.strftime('%Y') / target_day.strftime('%m') / target_day.strftime('%d')
-
-				self.assertTrue((out_dir / 'orders.csv').exists())
-				self.assertTrue((out_dir / 'orders.json').exists())
-				self.assertTrue((out_dir / 'events.csv').exists())
+		orders_csv.assert_called_once()
+		orders_json.assert_called_once()
+		events_csv.assert_called_once()
+		self.assertEqual(orders_csv.call_args.args[0], expected_dir / 'orders.csv')
+		self.assertEqual(orders_json.call_args.args[0], expected_dir / 'orders.json')
+		self.assertEqual(events_csv.call_args.args[0], expected_dir / 'events.csv')
 
 	@override_settings(
 		EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',

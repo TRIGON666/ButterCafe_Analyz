@@ -2,31 +2,105 @@
 {% load i18n %}
 
 {% block content %}
-<div class="dashboard-hero">
-    <div>
-        <h1>ButterCafe Admin</h1>
-        <p>Удобный центр управления сайтом: быстрый переход к заказам, товарам, пользователям и аналитике.</p>
-    </div>
-    <div class="dashboard-hero-actions">
-        <a href="{% url 'admin_analytics_dashboard' %}" class="dashboard-button">Перейти в дашборд</a>
-        <span class="dashboard-actions-intro">Доступ к ключевым метрикам в один клик.</span>
-    </div>
-</div>
+<div class="admin-home">
+    <section class="admin-home-hero">
+        <div>
+            <span class="admin-home-kicker">ButterCafe workspace</span>
+            <h1>Панель управления</h1>
+            <p>Единый рабочий экран для заказов, меню, корзин, клиентов и аналитики. Основные действия вынесены наверх, чтобы администратор быстро находил нужный раздел.</p>
+        </div>
+        <div class="admin-home-actions">
+            <a href="{% url 'admin:cafe_order_changelist' %}" class="dashboard-button">
+                <span class="bc-svg-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M7 8h10M7 12h10M7 16h6"/><path d="M5 3h14a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z"/></svg>
+                </span>
+                Заказы
+            </a>
+            <a href="{% url 'admin:cafe_product_changelist' %}" class="dashboard-button secondary">
+                <span class="bc-svg-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M4 10h16"/><path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                </span>
+                Товары
+            </a>
+            <a href="{% url 'admin_analytics_dashboard' %}" class="dashboard-button secondary">
+                <span class="bc-svg-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 16v-5"/><path d="M12 16V8"/><path d="M16 16v-9"/></svg>
+                </span>
+                Дашборд
+            </a>
+        </div>
+    </section>
 
-{% if app_list %}
-<div class="dashboard-cards">
-    {% for app in app_list %}
-    <div class="dashboard-card">
-        <h2>{{ app.name }}</h2>
-        <ul>
-            {% for model in app.models %}
-            <li><a href="{{ model.admin_url }}">{{ model.name }}</a></li>
-            {% endfor %}
-        </ul>
-    </div>
-    {% endfor %}
+    <section class="admin-quick-grid">
+        <a class="admin-quick-card" href="{% url 'admin:cafe_order_changelist' %}">
+            <span class="admin-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M7 8h10M7 12h10M7 16h6"/><path d="M5 3h14a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z"/></svg>
+            </span>
+            <strong>Обработка заказов</strong>
+            <small>Статусы, состав, контакты и чеки.</small>
+        </a>
+        <a class="admin-quick-card" href="{% url 'admin:cafe_product_add' %}">
+            <span class="admin-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/><path d="M4 7h16v13H4z"/><path d="M8 7a4 4 0 0 1 8 0"/></svg>
+            </span>
+            <strong>Добавить товар</strong>
+            <small>Создать позицию меню и заполнить карточку.</small>
+        </a>
+        <a class="admin-quick-card" href="{% url 'admin:cafe_cart_changelist' %}">
+            <span class="admin-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M6 6h15l-2 8H8L6 3H3"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
+            </span>
+            <strong>Корзины</strong>
+            <small>Сессии, состав и очистка пустых корзин.</small>
+        </a>
+        <a class="admin-quick-card" href="{% url 'admin_analytics_dashboard' %}">
+            <span class="admin-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 15 4-4 3 3 5-7"/><path d="M17 7h2v2"/></svg>
+            </span>
+            <strong>Аналитика</strong>
+            <small>Продажи, прогноз и востребованные товары.</small>
+        </a>
+    </section>
+
+    {% if app_list %}
+    <section class="admin-section-grid">
+        {% for app in app_list %}
+        <article class="admin-section-card">
+            <header>
+                <div>
+                    <span class="admin-section-label">Раздел</span>
+                    <h2>{{ app.name }}</h2>
+                </div>
+            </header>
+            <ul>
+                {% for model in app.models %}
+                    {% if model.admin_url %}
+                    <li>
+                        <a href="{{ model.admin_url }}" class="admin-model-row model-{{ model.object_name|lower }}">
+                            <span class="admin-model-name">
+                                <span class="admin-model-icon" aria-hidden="true"></span>
+                                {{ model.name }}
+                            </span>
+                            <em>Открыть</em>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li>
+                        <span class="admin-model-row model-{{ model.object_name|lower }}">
+                            <span class="admin-model-name">
+                                <span class="admin-model-icon" aria-hidden="true"></span>
+                                {{ model.name }}
+                            </span>
+                        </span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </article>
+        {% endfor %}
+    </section>
+    {% else %}
+    <p>{% trans "You don't have permission to view any apps." %}</p>
+    {% endif %}
 </div>
-{% else %}
-<p>{% trans "You don't have permission to view any apps." %}</p>
-{% endif %}
 {% endblock %}

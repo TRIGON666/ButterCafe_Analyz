@@ -23,10 +23,23 @@ class Migration(migrations.Migration):
             old_name='created',
             new_name='created_at',
         ),
-        migrations.AddField(
-            model_name='product',
-            name='cost_price',
-            field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True, validators=[django.core.validators.MinValueValidator(0)], verbose_name='Себестоимость'),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql=(
+                        'ALTER TABLE cafe_product '
+                        'ADD COLUMN IF NOT EXISTS cost_price numeric(10, 2) NULL'
+                    ),
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='product',
+                    name='cost_price',
+                    field=models.DecimalField(blank=True, decimal_places=2, max_digits=10, null=True, validators=[django.core.validators.MinValueValidator(0)], verbose_name='Себестоимость'),
+                ),
+            ],
         ),
         migrations.CreateModel(
             name='EventLog',

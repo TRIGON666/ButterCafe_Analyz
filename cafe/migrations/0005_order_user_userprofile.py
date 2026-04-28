@@ -13,10 +13,42 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.AddField(
-            model_name='order',
-            name='user',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='orders', to=settings.AUTH_USER_MODEL, verbose_name='Пользователь'),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql=[
+                        (
+                            'ALTER TABLE cafe_order '
+                            'ADD COLUMN IF NOT EXISTS user_id integer NULL'
+                        ),
+                        (
+                            'CREATE INDEX IF NOT EXISTS cafe_order_user_id_f0b31dd9 '
+                            'ON cafe_order (user_id)'
+                        ),
+                        (
+                            "DO $$ BEGIN "
+                            "IF NOT EXISTS ("
+                            "SELECT 1 FROM pg_constraint "
+                            "WHERE conname = 'cafe_order_user_id_f0b31dd9_fk_auth_user_id'"
+                            ") THEN "
+                            "ALTER TABLE cafe_order "
+                            "ADD CONSTRAINT cafe_order_user_id_f0b31dd9_fk_auth_user_id "
+                            "FOREIGN KEY (user_id) REFERENCES auth_user(id) "
+                            "DEFERRABLE INITIALLY DEFERRED; "
+                            "END IF; "
+                            "END $$;"
+                        ),
+                    ],
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.AddField(
+                    model_name='order',
+                    name='user',
+                    field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='orders', to=settings.AUTH_USER_MODEL, verbose_name='Пользователь'),
+                ),
+            ],
         ),
         migrations.CreateModel(
             name='UserProfile',

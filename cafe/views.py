@@ -4,7 +4,8 @@ from django.contrib.auth.decorators import login_required
 from django.core.management import call_command
 from django.db import transaction
 import logging
-from django.db.models import Q
+from django.db.models import Q, Sum
+from .forms import OrderCreateForm
 from .models import Category, Product, Cart, CartItem, Order, OrderItem, UserProfile, EventLog
 from django.http import JsonResponse
 from django.template.loader import render_to_string
@@ -17,8 +18,23 @@ def get_cart(request):
     return cart
 
 def get_cart_items_count(request):
-    cart = get_cart(request)
-    return sum(item.quantity for item in cart.items.all())
+    session_key = request.session.session_key
+    if not session_key:
+        return 0
+
+    return CartItem.objects.filter(cart__session_key=session_key).aggregate(
+        total=Sum('quantity')
+    )['total'] or 0
+
+
+def get_cart_queryset(cart):
+    return cart.items.select_related('product', 'product__category')
+
+
+def get_delivery_price(delivery_type, has_items=True):
+    if not has_items or delivery_type != 'delivery':
+        return 0
+    return 100
 
 
 def get_or_create_user_profile(user):
@@ -35,7 +51,7 @@ def log_event(event_type, user=None, metadata=None):
 
 def home(request):
     categories = Category.objects.all()
-    featured_products = Product.objects.filter(available=True)[:6]
+    featured_products = Product.objects.filter(available=True).select_related('category')[:6]
     context = {
         'categories': categories,
         'featured_products': featured_products,
@@ -45,7 +61,7 @@ def home(request):
 
 def menu(request):
     categories = Category.objects.all()
-    products = Product.objects.filter(available=True)
+    products = Product.objects.filter(available=True).select_related('category')
     category_id = request.GET.get('category')
     
     if category_id:
@@ -67,7 +83,7 @@ def menu(request):
 
 def cart(request):
     cart = get_cart(request)
-    cart_items = cart.items.all()
+    cart_items = get_cart_queryset(cart)
     total_price = sum(item.total_price for item in cart_items)
     
     context = {
@@ -88,7 +104,7 @@ def add_to_cart(request, product_id):
     )
     if not created:
         cart_item.quantity += 1
-        cart_item.save()
+        cart_item.save(update_fields=['quantity'])
 
     log_event(
         event_type='added_to_cart',
@@ -101,7 +117,7 @@ def add_to_cart(request, product_id):
     )
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
-        return JsonResponse({'success': True, 'cart_items_count': sum(item.quantity for item in cart.items.all())})
+        return JsonResponse({'success': True, 'cart_items_count': get_cart_items_count(request)})
     messages.success(request, f'Товар "{product.name}" добавлен в корзину')
     return redirect('cafe:cart')
 
@@ -124,7 +140,7 @@ def update_cart_item(request, item_id):
     
     if quantity > 0:
         cart_item.quantity = quantity
-        cart_item.save()
+        cart_item.save(update_fields=['quantity'])
     else:
         cart_item.delete()
     
@@ -137,9 +153,9 @@ def product_modal(request, product_id):
 
 def order_modal(request):
     cart = get_cart(request)
-    cart_items = cart.items.all()
+    cart_items = get_cart_queryset(cart)
     items_price = sum(item.total_price for item in cart_items)
-    delivery_price = 100 if cart_items else 0
+    delivery_price = get_delivery_price('pickup_10a', bool(items_price))
     total = items_price + delivery_price
 
     initial_name = ''
@@ -168,19 +184,26 @@ def order_modal(request):
 @require_POST
 def order_create(request):
     cart = get_cart(request)
-    cart_items = cart.items.all()
-    if not cart_items.exists():
+    cart_items = list(get_cart_queryset(cart))
+    if not cart_items:
         return JsonResponse({'success': False, 'errors': ['Корзина пуста']}, status=400)
 
     items_price = sum(item.total_price for item in cart_items)
-    delivery_price = 100 if cart_items else 0
+    form = OrderCreateForm(request.POST)
+    if not form.is_valid():
+        errors = []
+        for field_errors in form.errors.values():
+            errors.extend(str(error) for error in field_errors)
+        return JsonResponse({'success': False, 'errors': errors}, status=400)
+
+    data = form.cleaned_data
+    delivery_price = get_delivery_price(data['delivery_type'], bool(cart_items))
     total = items_price + delivery_price
-    data = request.POST
     try:
         # Формируем текст чека
         receipt_lines = [
-            f'Заказ от: {data.get("name", "")}\nТелефон: {data.get("phone", "")}\nEmail: {data.get("email", "")}\n',
-            f'Способ получения: {dict(Order.DELIVERY_CHOICES).get(data.get("delivery_type", ""), "")}\n',
+            f'Заказ от: {data["name"]}\nТелефон: {data["phone"]}\nEmail: {data.get("email", "")}\n',
+            f'Способ получения: {dict(Order.DELIVERY_CHOICES).get(data["delivery_type"], "")}\n',
             f'Адрес: {data.get("address", "")}\n',
             'Состав заказа:'
         ]
@@ -192,20 +215,20 @@ def order_create(request):
             f'Итого: {total} р.',
             f'Комментарий: {data.get("comment", "")}\n',
             f'Время к заказу: {data.get("time", "")}\n',
-            f'Одноразовые приборы: {"Да" if data.get("need_cutlery") else "Нет"}',
-            f'Звонок для подтверждения: {"Да" if data.get("need_call") else "Нет"}',
+            f'Одноразовые приборы: {"Да" if data["need_cutlery"] else "Нет"}',
+            f'Звонок для подтверждения: {"Да" if data["need_call"] else "Нет"}',
         ]
         receipt_text = '\n'.join(receipt_lines)
         with transaction.atomic():
             order = Order.objects.create(
                 user=request.user if request.user.is_authenticated else None,
-                name=data.get('name', ''),
-                phone=data.get('phone', ''),
+                name=data['name'],
+                phone=data['phone'],
                 email=data.get('email', ''),
                 address=data.get('address', ''),
-                delivery_type=data.get('delivery_type', ''),
-                need_cutlery=bool(data.get('need_cutlery')),
-                need_call=bool(data.get('need_call')),
+                delivery_type=data['delivery_type'],
+                need_cutlery=data['need_cutlery'],
+                need_call=data['need_call'],
                 comment=data.get('comment', ''),
                 time=data.get('time', ''),
                 total=total,
@@ -223,17 +246,27 @@ def order_create(request):
                     'items_price': float(order.items_price),
                     'delivery_price': float(order.delivery_price),
                     'total': float(order.total),
-                    'items_count': cart_items.count(),
+                    'items_count': sum(item.quantity for item in cart_items),
                 }
             )
 
-            for item in cart_items:
-                OrderItem.objects.create(
+            OrderItem.objects.bulk_create([
+                OrderItem(
                     order=order,
                     product=item.product,
                     quantity=item.quantity,
                     price=item.product.price
                 )
+                for item in cart_items
+            ])
+
+            if request.user.is_authenticated:
+                profile = get_or_create_user_profile(request.user)
+                profile.phone = data['phone']
+                if data.get('address'):
+                    profile.default_address = data['address']
+                profile.save(update_fields=['phone', 'default_address'])
+
             cart.items.all().delete()
             return JsonResponse({'success': True})
     except Exception as e:

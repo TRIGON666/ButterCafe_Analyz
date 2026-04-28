@@ -7,10 +7,12 @@ window.addEventListener('DOMContentLoaded', function() {
     if (overlay) overlay.classList.remove('active');
 
     function closeMenu() {
+        if (!nav || !burger) return;
         nav.classList.remove('open');
         burger.classList.remove('open');
         if (overlay) overlay.classList.remove('active');
     }
+
     if (burger && nav) {
         burger.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -19,48 +21,52 @@ window.addEventListener('DOMContentLoaded', function() {
             if (overlay) overlay.classList.toggle('active');
         });
         nav.querySelectorAll('a').forEach(function(link) {
-            link.addEventListener('click', function() {
-                closeMenu();
-            });
+            link.addEventListener('click', closeMenu);
         });
         if (overlay) {
-            overlay.addEventListener('click', function() {
-                closeMenu();
-            });
+            overlay.addEventListener('click', closeMenu);
         }
         document.addEventListener('click', function(e) {
-            if (nav.classList.contains('open')) {
-                if (!nav.contains(e.target) && !burger.contains(e.target)) {
-                    closeMenu();
-                }
+            if (nav.classList.contains('open') && !nav.contains(e.target) && !burger.contains(e.target)) {
+                closeMenu();
             }
         });
     }
 });
 
-
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.add-to-cart-btn').forEach(function(btn) {
         btn.addEventListener('click', function(e) {
             e.preventDefault();
-            var productId = this.getAttribute('data-id');
-            fetch('/cart/add/' + productId + '/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    updateCartCount(data.cart_items_count);
-                    showToast('Товар добавлен в корзину!');
-                }
-            });
+            addProductToCart(this.getAttribute('data-id'));
         });
     });
 });
+
+function addProductToCart(productId) {
+    if (!productId) return;
+
+    fetch('/cart/add/' + productId + '/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+    })
+    .then(function(response) {
+        if (!response.ok) throw new Error('cart-add-failed');
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            updateCartCount(data.cart_items_count);
+            showToast('Товар добавлен в корзину!');
+        }
+    })
+    .catch(function() {
+        showToast('Не удалось добавить товар. Попробуйте позже.');
+    });
+}
 
 function updateCartCount(count) {
     var cartCount = document.querySelector('.cart-count');
@@ -93,11 +99,11 @@ function showToast(msg) {
 }
 
 function getCookie(name) {
-    let cookieValue = null;
+    var cookieValue = null;
     if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var cookie = cookies[i].trim();
             if (cookie.substring(0, name.length + 1) === (name + '=')) {
                 cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                 break;
@@ -121,42 +127,46 @@ document.addEventListener('DOMContentLoaded', function() {
             closeProductModal();
         }
     });
+
+    document.body.addEventListener('keydown', function(e) {
+        var link = e.target.closest('.product-link');
+        if (!link || !link.dataset.id) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openProductModal(link.dataset.id);
+        }
+    });
 });
 
 function openProductModal(productId) {
     fetch('/product/' + productId + '/modal/')
-        .then(r => r.json())
-        .then(data => {
+        .then(function(response) {
+            if (!response.ok) throw new Error('product-modal-failed');
+            return response.json();
+        })
+        .then(function(data) {
             var modal = document.getElementById('modalProduct');
             var content = document.getElementById('modalProductContent');
+            if (!modal || !content) return;
+
             content.innerHTML = data.html;
             modal.style.display = 'flex';
             setTimeout(function() { modal.classList.add('active'); }, 10);
             content.querySelectorAll('.add-to-cart-btn').forEach(function(btn) {
                 btn.addEventListener('click', function(e) {
                     e.preventDefault();
-                    var productId = this.getAttribute('data-id');
-                    fetch('/cart/add/' + productId + '/', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken'),
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            updateCartCount(data.cart_items_count);
-                            showToast('Товар добавлен в корзину!');
-                        }
-                    });
+                    addProductToCart(this.getAttribute('data-id'));
                 });
             });
+        })
+        .catch(function() {
+            showToast('Не удалось открыть товар. Попробуйте позже.');
         });
 }
 
 function closeProductModal() {
     var modal = document.getElementById('modalProduct');
+    if (!modal) return;
     modal.classList.remove('active');
     setTimeout(function() { modal.style.display = 'none'; }, 200);
 }
@@ -167,18 +177,31 @@ document.addEventListener('DOMContentLoaded', function() {
         orderBtn.addEventListener('click', function(e) {
             e.preventDefault();
             fetch('/order/modal/')
-                .then(r => r.json())
-                .then(data => {
+                .then(function(response) {
+                    if (!response.ok) throw new Error('order-modal-failed');
+                    return response.json();
+                })
+                .then(function(data) {
                     var modal = document.getElementById('modalOrder');
                     var content = document.getElementById('modalOrderContent');
+                    if (!modal || !content) return;
+
                     content.innerHTML = data.html;
                     modal.style.display = 'flex';
                     setTimeout(function() { modal.classList.add('active'); }, 10);
+
                     var closeBtn = document.getElementById('modalOrderClose');
                     if (closeBtn) {
                         closeBtn.onclick = closeOrderModal;
                     }
-                    document.querySelector('.modal-order-overlay').onclick = closeOrderModal;
+
+                    var overlay = document.querySelector('.modal-order-overlay');
+                    if (overlay) {
+                        overlay.onclick = closeOrderModal;
+                    }
+
+                    setupOrderTotals();
+
                     var form = document.getElementById('orderForm');
                     if (form) {
                         form.onsubmit = function(ev) {
@@ -192,25 +215,59 @@ document.addEventListener('DOMContentLoaded', function() {
                                 },
                                 body: formData
                             })
-                            .then(r => r.json())
-                            .then(data => {
+                            .then(function(response) {
+                                return response.json().then(function(data) {
+                                    if (!response.ok) throw data;
+                                    return data;
+                                });
+                            })
+                            .then(function(data) {
                                 if (data.success) {
                                     closeOrderModal();
                                     showToast('Заказ успешно оформлен!');
-                                    setTimeout(function(){ window.location.reload(); }, 1200);
-                                } else if (data.errors) {
-                                    alert('Ошибка: ' + data.errors.join('\n'));
+                                    setTimeout(function() { window.location.reload(); }, 1200);
                                 }
+                            })
+                            .catch(function(data) {
+                                var errors = data && data.errors ? data.errors : ['Не удалось оформить заказ. Попробуйте позже.'];
+                                alert('Ошибка: ' + errors.join('\n'));
                             });
-                        }
+                        };
                     }
+                })
+                .catch(function() {
+                    showToast('Не удалось открыть оформление заказа.');
                 });
         });
     }
 });
 
+function setupOrderTotals() {
+    var deliveryType = document.getElementById('deliveryType');
+    var address = document.getElementById('deliveryAddress');
+    var itemsPriceEl = document.getElementById('orderItemsPrice');
+    var deliveryPriceEl = document.getElementById('orderDeliveryPrice');
+    var totalPriceEl = document.getElementById('orderTotalPrice');
+    if (!deliveryType || !itemsPriceEl || !deliveryPriceEl || !totalPriceEl) return;
+
+    var itemsPrice = Number(itemsPriceEl.dataset.value || itemsPriceEl.textContent || 0);
+
+    function refreshTotals() {
+        var deliveryPrice = deliveryType.value === 'delivery' ? 100 : 0;
+        deliveryPriceEl.textContent = deliveryPrice;
+        totalPriceEl.textContent = itemsPrice + deliveryPrice;
+        if (address) {
+            address.required = deliveryType.value === 'delivery';
+        }
+    }
+
+    deliveryType.addEventListener('change', refreshTotals);
+    refreshTotals();
+}
+
 function closeOrderModal() {
     var modal = document.getElementById('modalOrder');
+    if (!modal) return;
     modal.classList.remove('active');
     setTimeout(function() { modal.style.display = 'none'; }, 200);
-} 
+}

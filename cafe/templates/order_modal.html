@@ -22,7 +22,7 @@
             <label>Телефон:<input type="text" name="phone" value="{{ initial_phone }}" required></label>
             <label>Email:<input type="email" name="email" value="{{ initial_email }}"></label>
             <label>Способ получения:
-                <select name="delivery_type" required>
+                <select name="delivery_type" id="deliveryType" required>
                     <option value="pickup_10a">Самовывоз с Лобачевского 10а</option>
                     <option value="pickup_43">Самовывоз с Щапова 43</option>
                     <option value="pickup_51">Самовывоз с Сибгата Хакима 51 (ЖК Столичный)</option>
@@ -30,7 +30,7 @@
                     <option value="delivery">Доставка</option>
                 </select>
             </label>
-            <label>Адрес (если доставка):<input type="text" name="address" value="{{ initial_address }}"></label>
+            <label>Адрес (если доставка):<input type="text" name="address" id="deliveryAddress" value="{{ initial_address }}"></label>
             <label>Комментарий:<textarea name="comment"></textarea></label>
             <label>Время к заказу:<input type="text" name="time"></label>
             <label><input type="checkbox" name="need_cutlery" checked> Одноразовые приборы</label>
@@ -38,9 +38,9 @@
         </div>
     </div>
     <div class="order-modal-summary-fixed">
-        <div class="order-modal-row"><span>Стоимость товаров:</span> <b>{{ items_price|floatformat:0 }} р.</b></div>
-        <div class="order-modal-row"><span>Доставка:</span> <b>{{ delivery_price|floatformat:0 }} р.</b></div>
-        <div class="order-modal-row order-modal-total"><span>Итого:</span> <b>{{ total|floatformat:0 }} р.</b></div>
+        <div class="order-modal-row"><span>Стоимость товаров:</span> <b><span id="orderItemsPrice" data-value="{{ items_price|floatformat:0 }}">{{ items_price|floatformat:0 }}</span> р.</b></div>
+        <div class="order-modal-row"><span>Доставка:</span> <b><span id="orderDeliveryPrice">0</span> р.</b></div>
+        <div class="order-modal-row order-modal-total"><span>Итого:</span> <b><span id="orderTotalPrice">{{ items_price|floatformat:0 }}</span> р.</b></div>
         <button type="submit" class="order-btn order-modal-submit">Оформить заказ</button>
     </div>
     <button type="button" class="modal-order-close" id="modalOrderClose">×</button>

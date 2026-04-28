@@ -23,7 +23,7 @@
     </form>
     <div class="products-grid">
         {% for product in products %}
-        <a href="#" class="product-card product-link" data-id="{{ product.id }}">
+        <article class="product-card product-link" data-id="{{ product.id }}" tabindex="0" role="button" aria-label="Открыть товар {{ product.name }}">
             {% if product.image %}
             <img src="{{ product.image.url }}" alt="{{ product.name }}" class="product-img">
             {% endif %}
@@ -32,10 +32,10 @@
                 <div class="product-desc">{{ product.description }}</div>
                 <div class="product-bottom">
                     <div class="product-price">{{ product.price|floatformat:0 }} р.</div>
-                    <button class="order-btn add-to-cart-btn" data-id="{{ product.id }}" onclick="event.stopPropagation(); event.preventDefault();">В корзину</button>
+                    <button type="button" class="order-btn add-to-cart-btn" data-id="{{ product.id }}">В корзину</button>
                 </div>
             </div>
-        </a>
+        </article>
         {% empty %}
         <div style="text-align: center; grid-column: 1 / -1;">
             <p style="color: #6C2A17; font-size: 18px;">Товары не найдены</p>

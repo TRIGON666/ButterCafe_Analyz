@@ -1,47 +1,176 @@
 import json
-from datetime import timedelta
+import math
+from datetime import datetime, timedelta
 from io import BytesIO
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Sum
-from django.db.models.functions import ExtractHour, TruncDate
+from django.db.models.functions import ExtractHour, TruncDate, TruncMonth, TruncWeek
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
-from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
-from reportlab.graphics.shapes import Drawing, String
-from reportlab.graphics.charts.barcharts import VerticalBarChart
-from reportlab.graphics.charts.linecharts import HorizontalLineChart
-from reportlab.graphics.charts.piecharts import Pie
 
 from cafe.models import EventLog, Order, OrderItem
 
 
-def _build_analytics_payload():
-    end_date = timezone.localdate()
-    start_date = end_date - timedelta(days=13)
+PERIOD_PRESETS = {
+    'today': 0,
+    '7d': 6,
+    '14d': 13,
+    '30d': 29,
+    '90d': 89,
+}
+
+
+def _parse_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+def _resolve_period(request):
+    end_date = _parse_date(request.GET.get('end')) or timezone.localdate()
+    period = request.GET.get('period', '14d')
+    start_date = _parse_date(request.GET.get('start'))
+
+    if period == 'month':
+        start_date = end_date.replace(day=1)
+    elif period == 'week':
+        start_date = end_date - timedelta(days=end_date.weekday())
+    elif period == 'custom' and start_date:
+        pass
+    else:
+        start_date = end_date - timedelta(days=PERIOD_PRESETS.get(period, 13))
+        period = period if period in PERIOD_PRESETS else '14d'
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    group_by = request.GET.get('group_by', 'day')
+    if group_by not in {'day', 'week', 'month'}:
+        group_by = 'day'
+
+    return start_date, end_date, period, group_by
+
+
+def _group_config(group_by):
+    if group_by == 'week':
+        return TruncWeek('created_at'), '%d.%m'
+    if group_by == 'month':
+        return TruncMonth('created_at'), '%m.%Y'
+    return TruncDate('created_at'), '%d.%m'
+
+
+def _weighted_forecast(end_date):
+    forecast_start = end_date - timedelta(days=27)
+    item_qs = OrderItem.objects.filter(order__created_at__date__gte=forecast_start, order__created_at__date__lte=end_date)
+    orders_qs = Order.objects.filter(created_at__date__gte=forecast_start, created_at__date__lte=end_date)
+
+    weights = [1, 2, 3, 5]
+    weekly_revenue = []
+    weekly_orders = []
+    weekday_orders = {index: [] for index in range(7)}
+    product_scores = {}
+    product_week_values = {}
+
+    for index, weight in enumerate(weights):
+        week_start = forecast_start + timedelta(days=index * 7)
+        week_end = week_start + timedelta(days=6)
+        week_orders = orders_qs.filter(created_at__date__gte=week_start, created_at__date__lte=week_end)
+        totals = week_orders.aggregate(revenue=Sum('total'), orders_count=Count('id'))
+
+        weekly_revenue.append(float(totals['revenue'] or 0))
+        weekly_orders.append(int(totals['orders_count'] or 0))
+
+        for day_offset in range(7):
+            day = week_start + timedelta(days=day_offset)
+            count = week_orders.filter(created_at__date=day).count()
+            weekday_orders[day_offset].append(count)
+
+        week_products = (
+            item_qs.filter(order__created_at__date__gte=week_start, order__created_at__date__lte=week_end)
+            .values('product__name')
+            .annotate(quantity=Sum('quantity'))
+        )
+        for item in week_products:
+            name = item['product__name'] or 'Без названия'
+            quantity = float(item['quantity'] or 0)
+            product_scores[name] = product_scores.get(name, 0) + quantity * weight
+            product_week_values.setdefault(name, [0, 0, 0, 0])[index] = quantity
+
+    weight_sum = sum(weights)
+    next_week_revenue = sum(value * weights[index] for index, value in enumerate(weekly_revenue)) / weight_sum if weight_sum else 0
+    next_week_orders = sum(value * weights[index] for index, value in enumerate(weekly_orders)) / weight_sum if weight_sum else 0
+
+    daily_forecast = []
+    next_week_start = end_date + timedelta(days=1)
+    for day_offset in range(7):
+        values = weekday_orders[day_offset]
+        weighted_count = sum(values[index] * weights[index] for index in range(len(weights))) / weight_sum if weight_sum else 0
+        day = next_week_start + timedelta(days=day_offset)
+        daily_forecast.append(
+            {
+                'label': day.strftime('%d.%m'),
+                'orders': int(round(weighted_count)),
+            }
+        )
+
+    forecast_products = []
+    for name, score in sorted(product_scores.items(), key=lambda pair: pair[1], reverse=True)[:8]:
+        values = product_week_values.get(name, [0, 0, 0, 0])
+        expected = sum(values[index] * weights[index] for index in range(len(weights))) / weight_sum if weight_sum else 0
+        trend = 'stable'
+        if values[-1] > values[-2] if len(values) > 1 else False:
+            trend = 'up'
+        elif values[-1] < values[-2] if len(values) > 1 else False:
+            trend = 'down'
+        forecast_products.append(
+            {
+                'name': name,
+                'expected_quantity': int(math.ceil(expected)),
+                'score': round(score, 2),
+                'trend': trend,
+            }
+        )
+
+    return {
+        'next_week_revenue': round(next_week_revenue, 2),
+        'next_week_orders': int(round(next_week_orders)),
+        'forecast_products': forecast_products,
+        'daily_forecast': daily_forecast,
+        'forecast_labels': [item['label'] for item in daily_forecast],
+        'forecast_orders': [item['orders'] for item in daily_forecast],
+    }
+
+
+def _build_analytics_payload(request):
+    start_date, end_date, period, group_by = _resolve_period(request)
+    trunc_expression, label_format = _group_config(group_by)
 
     orders_qs = Order.objects.filter(created_at__date__gte=start_date, created_at__date__lte=end_date)
+    items_qs = OrderItem.objects.filter(order__created_at__date__gte=start_date, order__created_at__date__lte=end_date)
 
     daily_stats = list(
-        orders_qs.annotate(day=TruncDate('created_at'))
-        .values('day')
+        orders_qs.annotate(period=trunc_expression)
+        .values('period')
         .annotate(revenue=Sum('total'), orders_count=Count('id'))
-        .order_by('day')
+        .order_by('period')
     )
-
-    daily_labels = [item['day'].strftime('%d.%m') for item in daily_stats]
+    daily_labels = [item['period'].strftime(label_format) for item in daily_stats]
     daily_revenue = [float(item['revenue'] or 0) for item in daily_stats]
     daily_orders = [item['orders_count'] for item in daily_stats]
 
     top_products = list(
-        OrderItem.objects.filter(order__created_at__date__gte=start_date, order__created_at__date__lte=end_date)
-        .values('product__name')
-        .annotate(quantity=Sum('quantity'))
+        items_qs.values('product__name')
+        .annotate(quantity=Sum('quantity'), revenue=Sum('price'))
         .order_by('-quantity', 'product__name')[:8]
     )
     top_product_labels = [item['product__name'] for item in top_products]
@@ -70,9 +199,13 @@ def _build_analytics_payload():
     total_orders = int(totals['orders_count'] or 0)
     avg_check = round(total_revenue / total_orders, 2) if total_orders else 0
 
+    forecast = _weighted_forecast(end_date)
+
     return {
         'start_date': start_date,
         'end_date': end_date,
+        'period': period,
+        'group_by': group_by,
         'daily_stats': daily_stats,
         'top_products': top_products,
         'events_stats': events_stats,
@@ -89,35 +222,36 @@ def _build_analytics_payload():
         'event_values': event_values,
         'hourly_labels': hourly_labels,
         'hourly_values': hourly_values,
+        **forecast,
     }
 
 
 @staff_member_required
 def analytics_dashboard(request):
-    payload = _build_analytics_payload()
+    payload = _build_analytics_payload(request)
 
     context = {
+        **payload,
         'title': 'Аналитика ButterCafe',
-        'subtitle': f'Период: {payload["start_date"].strftime("%d.%m.%Y")} - {payload["end_date"].strftime("%d.%m.%Y")}',
-        'total_revenue': payload['total_revenue'],
-        'total_orders': payload['total_orders'],
-        'avg_check': payload['avg_check'],
-        'daily_labels': json.dumps(payload['daily_labels'], ensure_ascii=False),
-        'daily_revenue': json.dumps(payload['daily_revenue']),
-        'daily_orders': json.dumps(payload['daily_orders']),
-        'top_product_labels': json.dumps(payload['top_product_labels'], ensure_ascii=False),
-        'top_product_values': json.dumps(payload['top_product_values']),
-        'event_labels': json.dumps(payload['event_labels'], ensure_ascii=False),
-        'event_values': json.dumps(payload['event_values']),
-        'hourly_labels': json.dumps(payload['hourly_labels'], ensure_ascii=False),
-        'hourly_values': json.dumps(payload['hourly_values']),
+        'subtitle': f'{payload["start_date"].strftime("%d.%m.%Y")} - {payload["end_date"].strftime("%d.%m.%Y")}',
+        'daily_labels_json': json.dumps(payload['daily_labels'], ensure_ascii=False),
+        'daily_revenue_json': json.dumps(payload['daily_revenue']),
+        'daily_orders_json': json.dumps(payload['daily_orders']),
+        'top_product_labels_json': json.dumps(payload['top_product_labels'], ensure_ascii=False),
+        'top_product_values_json': json.dumps(payload['top_product_values']),
+        'event_labels_json': json.dumps(payload['event_labels'], ensure_ascii=False),
+        'event_values_json': json.dumps(payload['event_values']),
+        'hourly_labels_json': json.dumps(payload['hourly_labels'], ensure_ascii=False),
+        'hourly_values_json': json.dumps(payload['hourly_values']),
+        'forecast_labels_json': json.dumps(payload['forecast_labels'], ensure_ascii=False),
+        'forecast_orders_json': json.dumps(payload['forecast_orders']),
     }
     return render(request, 'admin/analytics_dashboard.html', context)
 
 
 @staff_member_required
 def analytics_dashboard_pdf(request):
-    payload = _build_analytics_payload()
+    payload = _build_analytics_payload(request)
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -130,133 +264,61 @@ def analytics_dashboard_pdf(request):
     )
 
     styles = getSampleStyleSheet()
-    story = []
-
-    story.append(Paragraph('ButterCafe Analytics Report', styles['Title']))
-    story.append(
-        Paragraph(
-            f"Period: {payload['start_date'].strftime('%d.%m.%Y')} - {payload['end_date'].strftime('%d.%m.%Y')}",
-            styles['Normal'],
-        )
-    )
-    story.append(Spacer(1, 8))
+    story = [
+        Paragraph('ButterCafe Analytics Report', styles['Title']),
+        Paragraph(f"Period: {payload['start_date'].strftime('%d.%m.%Y')} - {payload['end_date'].strftime('%d.%m.%Y')}", styles['Normal']),
+        Spacer(1, 8),
+    ]
 
     kpi_table = Table(
         [
-            ['Total revenue', 'Total orders', 'Average check'],
-            [f"{payload['total_revenue']:.2f} RUB", str(payload['total_orders']), f"{payload['avg_check']:.2f} RUB"],
+            ['Revenue', 'Orders', 'Average check', 'Next week orders'],
+            [
+                f"{payload['total_revenue']:.2f} RUB",
+                str(payload['total_orders']),
+                f"{payload['avg_check']:.2f} RUB",
+                str(payload['next_week_orders']),
+            ],
         ],
-        colWidths=[56 * mm, 56 * mm, 56 * mm],
+        colWidths=[42 * mm, 42 * mm, 42 * mm, 42 * mm],
     )
     kpi_table.setStyle(
         TableStyle(
             [
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#eceff4')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#2d3748')),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0e2d2')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#4f1d10')),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#cbd5e0')),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                ('TOPPADDING', (0, 1), (-1, 1), 8),
-                ('BOTTOMPADDING', (0, 1), (-1, 1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d7b89f')),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
             ]
         )
     )
     story.append(kpi_table)
     story.append(Spacer(1, 12))
 
-    story.append(Paragraph('Dashboards', styles['Heading2']))
+    forecast_rows = [['Product forecast', 'Expected qty', 'Trend']]
+    for item in payload['forecast_products']:
+        forecast_rows.append([item['name'], str(item['expected_quantity']), item['trend']])
+    if len(forecast_rows) == 1:
+        forecast_rows.append(['No data', '-', '-'])
 
-    def _line_chart(title, labels, values, color_hex='#2b6cb0'):
-        chart_width = 170 * mm
-        chart_height = 58 * mm
-        drawing = Drawing(chart_width, chart_height)
-        drawing.add(String(0, chart_height - 4, title, fontName='Helvetica-Bold', fontSize=10))
-
-        if not labels or not values:
-            drawing.add(String(0, chart_height / 2, 'No data', fontName='Helvetica', fontSize=10))
-            return drawing
-
-        line = HorizontalLineChart()
-        line.x = 35
-        line.y = 15
-        line.height = chart_height - 30
-        line.width = chart_width - 50
-        line.data = [list(values)]
-        line.lines[0].strokeColor = colors.HexColor(color_hex)
-        line.lines[0].strokeWidth = 2
-        line.categoryAxis.categoryNames = [str(label) for label in labels]
-        line.categoryAxis.labels.boxAnchor = 'ne'
-        line.categoryAxis.labels.angle = 30
-        line.categoryAxis.labels.fontSize = 6
-        line.valueAxis.forceZero = True
-        line.valueAxis.labels.fontSize = 7
-        line.joinedLines = 1
-        drawing.add(line)
-        return drawing
-
-    def _bar_chart(title, labels, values, color_hex='#dd6b20'):
-        chart_width = 170 * mm
-        chart_height = 58 * mm
-        drawing = Drawing(chart_width, chart_height)
-        drawing.add(String(0, chart_height - 4, title, fontName='Helvetica-Bold', fontSize=10))
-
-        if not labels or not values:
-            drawing.add(String(0, chart_height / 2, 'No data', fontName='Helvetica', fontSize=10))
-            return drawing
-
-        bar = VerticalBarChart()
-        bar.x = 35
-        bar.y = 15
-        bar.height = chart_height - 30
-        bar.width = chart_width - 50
-        bar.data = [list(values)]
-        bar.barWidth = 8
-        bar.groupSpacing = 8
-        bar.bars[0].fillColor = colors.HexColor(color_hex)
-        bar.categoryAxis.categoryNames = [str(label) for label in labels]
-        bar.categoryAxis.labels.boxAnchor = 'ne'
-        bar.categoryAxis.labels.angle = 30
-        bar.categoryAxis.labels.fontSize = 6
-        bar.valueAxis.forceZero = True
-        bar.valueAxis.labels.fontSize = 7
-        drawing.add(bar)
-        return drawing
-
-    def _pie_chart(title, labels, values):
-        chart_width = 170 * mm
-        chart_height = 62 * mm
-        drawing = Drawing(chart_width, chart_height)
-        drawing.add(String(0, chart_height - 4, title, fontName='Helvetica-Bold', fontSize=10))
-
-        if not labels or not values:
-            drawing.add(String(0, chart_height / 2, 'No data', fontName='Helvetica', fontSize=10))
-            return drawing
-
-        pie = Pie()
-        pie.x = 10
-        pie.y = 5
-        pie.width = 60 * mm
-        pie.height = 45 * mm
-        pie.data = [float(v) for v in values]
-        pie.labels = [str(label) for label in labels]
-        pie.slices.strokeWidth = 0.5
-        pie.slices[0].popout = 3
-        pie.sideLabels = True
-        pie.simpleLabels = False
-        drawing.add(pie)
-        return drawing
-
-    story.append(_line_chart('Revenue by day', payload['daily_labels'], payload['daily_revenue']))
-    story.append(Spacer(1, 6))
-    story.append(_bar_chart('Orders by hour', payload['hourly_labels'], payload['hourly_values']))
-    story.append(Spacer(1, 6))
-    story.append(_bar_chart('Top products by quantity', payload['top_product_labels'], payload['top_product_values'], color_hex='#2f855a'))
-    story.append(Spacer(1, 6))
-    story.append(_pie_chart('Events distribution', payload['event_labels'], payload['event_values']))
+    forecast_table = Table(forecast_rows, colWidths=[105 * mm, 32 * mm, 32 * mm])
+    forecast_table.setStyle(
+        TableStyle(
+            [
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0e2d2')),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d7b89f')),
+                ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ]
+        )
+    )
+    story.append(Paragraph('Next week forecast', styles['Heading2']))
+    story.append(forecast_table)
     story.append(Spacer(1, 10))
-
-    story.append(Paragraph('Detailed tables', styles['Heading2']))
 
     top_products_rows = [['Product', 'Qty']]
     for item in payload['top_products']:
@@ -268,42 +330,15 @@ def analytics_dashboard_pdf(request):
     top_table.setStyle(
         TableStyle(
             [
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#edf2f7')),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f0e2d2')),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d7b89f')),
                 ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ]
         )
     )
+    story.append(Paragraph('Top products', styles['Heading2']))
     story.append(top_table)
-    story.append(Spacer(1, 8))
-
-    daily_rows = [['Date', 'Revenue (RUB)', 'Orders']]
-    for item in payload['daily_stats']:
-        daily_rows.append(
-            [
-                item['day'].strftime('%d.%m.%Y'),
-                f"{float(item['revenue'] or 0):.2f}",
-                str(item['orders_count']),
-            ]
-        )
-    if len(daily_rows) == 1:
-        daily_rows.append(['No data', '-', '-'])
-
-    daily_table = Table(daily_rows, colWidths=[50 * mm, 70 * mm, 50 * mm])
-    daily_table.setStyle(
-        TableStyle(
-            [
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#edf2f7')),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
-                ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ]
-        )
-    )
-    story.append(daily_table)
 
     doc.build(story)
 

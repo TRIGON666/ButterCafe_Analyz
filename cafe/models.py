@@ -89,6 +89,15 @@ class UserProfile(models.Model):
         return f'Профиль {self.user.username}'
 
 class Order(models.Model):
+    STATUS_CHOICES = [
+        ('new', 'Новый'),
+        ('confirmed', 'Подтвержден'),
+        ('cooking', 'Готовится'),
+        ('ready', 'Готов'),
+        ('delivered', 'Доставлен'),
+        ('cancelled', 'Отменен'),
+    ]
+
     DELIVERY_CHOICES = [
         ('pickup_10a', 'Самовывоз с Лобачевского 10а'),
         ('pickup_43', 'Самовывоз с Щапова 43'),
@@ -106,6 +115,7 @@ class Order(models.Model):
     need_call = models.BooleanField(default=True, verbose_name='Звонок для подтверждения')
     comment = models.TextField(blank=True, verbose_name='Комментарий')
     time = models.CharField(max_length=20, blank=True, verbose_name='Время к заказу')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new', verbose_name='Статус заказа')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата заказа')
     total = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Сумма заказа')
     delivery_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, verbose_name='Стоимость доставки')

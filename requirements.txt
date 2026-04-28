@@ -1,6 +1,6 @@
 Django==5.2.1
-psycopg2-binary==2.9.10
-Pillow==11.2.1
+psycopg[binary]==3.3.3
+Pillow==12.2.0
 python-dotenv==1.0.1
 django-crispy-forms==2.1
 crispy-bootstrap5==2023.10

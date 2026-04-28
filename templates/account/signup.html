@@ -22,7 +22,7 @@
                         <label for="{{ field.id_for_label }}" class="auth-field-label">{{ field.label }}</label>
                         {{ field }}
                         {% if field.help_text %}
-                            <p class="auth-help">{{ field.help_text|safe }}</p>
+                            <p class="auth-help">{{ field.help_text }}</p>
                         {% endif %}
                         {% if field.errors %}
                             <div class="auth-field-errors">
