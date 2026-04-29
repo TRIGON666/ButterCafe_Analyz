@@ -28,6 +28,12 @@
                 </span>
                 Дашборд
             </a>
+            <a href="{% url 'admin_metabase_dashboard' %}" class="dashboard-button secondary">
+                <span class="bc-svg-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 14 3-3 3 2 5-6"/><path d="M18 7h2v2"/><path d="M8 19v-3"/><path d="M13 19v-5"/><path d="M18 19v-8"/></svg>
+                </span>
+                Metabase
+            </a>
         </div>
     </section>
 
@@ -59,6 +65,13 @@
             </span>
             <strong>Аналитика</strong>
             <small>Продажи, прогноз и востребованные товары.</small>
+        </a>
+        <a class="admin-quick-card" href="{% url 'admin_metabase_dashboard' %}">
+            <span class="admin-quick-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="m7 14 3-3 3 2 5-6"/><path d="M18 7h2v2"/><path d="M8 19v-3"/><path d="M13 19v-5"/><path d="M18 19v-8"/></svg>
+            </span>
+            <strong>Metabase BI</strong>
+            <small>BI-дашборд, embed и карточки для email-отчета.</small>
         </a>
     </section>
 

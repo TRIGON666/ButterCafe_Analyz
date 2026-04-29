@@ -39,7 +39,7 @@ pip install -r requirements.txt
 4. Создайте файл .env в корневой директории проекта и добавьте следующие переменные:
 ```
 DEBUG=True
-SECRET_KEY=django-insecure-v&!dzxs1na-dxsg%v#l&pu)#gmkw4d)gnmm8m6$6*)cvm0t)0)
+SECRET_KEY=replace-with-local-secret-key
 DB_NAME=buttercafe
 DB_USER=postgres
 DB_PASSWORD=postgres

@@ -10,11 +10,12 @@ from django.contrib.auth.models import User
 from django.conf import settings
 from django.core import mail
 from django.core.management import call_command
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
 from cafe.models import Category, EventLog, Order, OrderItem, Product
-from cafe.services.reporting import DailyMetrics, render_daily_report_html
+from cafe.admin_dashboard import _build_analytics_payload
+from cafe.services.reporting import DailyMetrics, local_metrics, render_daily_report_html
 
 
 class AnalyticsCommandsTest(TestCase):
@@ -54,6 +55,29 @@ class AnalyticsCommandsTest(TestCase):
 		target_dt = timezone.make_aware(datetime.combine(target_day, time(hour=12)))
 		Order.objects.filter(id=self.order.id).update(created_at=target_dt)
 		EventLog.objects.filter(id=self.event.id).update(timestamp=target_dt)
+		self.target_day = target_day
+		self.target_dt = target_dt
+
+	def _create_cancelled_order(self, total=Decimal('500.00'), quantity=5):
+		cancelled_order = Order.objects.create(
+			user=self.user,
+			name='Cancelled User',
+			phone='+71111111111',
+			email='cancelled@test.local',
+			delivery_type='pickup_10a',
+			status='cancelled',
+			total=total,
+			delivery_price=Decimal('0.00'),
+			items_price=total,
+		)
+		OrderItem.objects.create(
+			order=cancelled_order,
+			product=self.product,
+			quantity=quantity,
+			price=Decimal('100.00'),
+		)
+		Order.objects.filter(id=cancelled_order.id).update(created_at=self.target_dt)
+		return cancelled_order
 
 	def test_export_daily_analytics_prepares_expected_files(self):
 		expected_dir = Path(settings.ANALYTICS_EXPORT_ROOT) / '2026' / '04' / '21'
@@ -127,6 +151,66 @@ class AnalyticsCommandsTest(TestCase):
 		self.assertIn('&lt;script&gt;alert(1)&lt;/script&gt;', html)
 		self.assertNotIn('<b>Проверить витрину</b>', html)
 		self.assertIn('&lt;b&gt;Проверить витрину&lt;/b&gt;', html)
+
+
+	def test_local_daily_metrics_exclude_cancelled_orders(self):
+		self._create_cancelled_order()
+		start_dt = timezone.make_aware(datetime.combine(self.target_day, time.min))
+		end_dt = timezone.make_aware(datetime.combine(self.target_day, time.max))
+
+		metrics = local_metrics(start_dt, end_dt)
+
+		self.assertEqual(metrics['revenue'], Decimal('200.00'))
+		self.assertEqual(metrics['orders_count'], 1)
+		self.assertEqual(metrics['avg_check'], Decimal('200.00'))
+		self.assertEqual(metrics['top_products'][0]['quantity'], 1)
+
+	def test_analytics_dashboard_payload_excludes_cancelled_sales(self):
+		self._create_cancelled_order()
+		request = RequestFactory().get(
+			'/admin/analytics/',
+			{
+				'period': 'custom',
+				'start': self.target_day.strftime('%Y-%m-%d'),
+				'end': self.target_day.strftime('%Y-%m-%d'),
+			},
+		)
+
+		payload = _build_analytics_payload(request)
+
+		self.assertEqual(payload['total_revenue'], 200.0)
+		self.assertEqual(payload['total_orders'], 1)
+		self.assertEqual(payload['top_product_values'], [1])
+		self.assertEqual(payload['daily_revenue'], [200.0])
+
+	def test_analytics_dashboard_funnel_falls_back_to_order_events_without_session_key(self):
+		cart_session = 'legacy-session'
+		EventLog.objects.create(
+			user=self.user,
+			event_type='added_to_cart',
+			metadata_json={'product_id': self.product.id, 'cart_session_key': cart_session},
+		)
+		EventLog.objects.create(
+			user=self.user,
+			event_type='order_created',
+			metadata_json={'order_id': self.order.id},
+		)
+		EventLog.objects.filter(timestamp__date=timezone.localdate()).update(timestamp=self.target_dt)
+		request = RequestFactory().get(
+			'/admin/analytics/',
+			{
+				'period': 'custom',
+				'start': self.target_day.strftime('%Y-%m-%d'),
+				'end': self.target_day.strftime('%Y-%m-%d'),
+			},
+		)
+
+		payload = _build_analytics_payload(request)
+
+		self.assertEqual(payload['cart_additions'], 1)
+		self.assertEqual(payload['created_orders_events'], 2)
+		self.assertEqual(payload['funnel_order_label'], 'Событий оформления заказа')
+		self.assertEqual(payload['cart_to_order_conversion'], 200.0)
 
 
 class CartOrderSecurityTest(TestCase):

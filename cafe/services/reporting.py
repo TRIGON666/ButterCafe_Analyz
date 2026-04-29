@@ -35,7 +35,7 @@ def previous_day_bounds():
 
 
 def local_metrics(start_dt, end_dt):
-    orders = Order.objects.filter(created_at__gte=start_dt, created_at__lte=end_dt)
+    orders = Order.objects.filter(created_at__gte=start_dt, created_at__lte=end_dt).exclude(status='cancelled')
     totals = orders.aggregate(
         revenue=Sum('total'),
         orders_count=Count('id'),
@@ -48,6 +48,7 @@ def local_metrics(start_dt, end_dt):
 
     top_products = list(
         OrderItem.objects.filter(order__created_at__gte=start_dt, order__created_at__lte=end_dt)
+        .exclude(order__status='cancelled')
         .values(product_name=F('product__name'))
         .annotate(quantity=Sum('quantity'))
         .order_by('-quantity', 'product_name')[:3]

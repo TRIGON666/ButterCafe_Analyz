@@ -29,6 +29,8 @@ db.sqlite3-journal
 media/
 data_lake/
 private_data_lake/
+docker_data/
+staticfiles/
 
 # Virtual Environment
 venv/

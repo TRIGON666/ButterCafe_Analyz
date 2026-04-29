@@ -1,43 +1,82 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}ButterCafe - Вход{% endblock %}
 
 {% block content %}
-<div class="container-main auth-page">
-    <div class="auth-card">
-        <h1 class="auth-title">Вход</h1>
-        <form method="post" action="{% url 'account_login' %}" class="auth-form">
-            {% csrf_token %}
-            {% if form.non_field_errors %}
-                <div class="auth-errors">
-                    {% for error in form.non_field_errors %}
-                        <p class="auth-error-item">{{ error }}</p>
-                    {% endfor %}
+<div class="container-main auth-page auth-page-wide">
+    <section class="auth-shell">
+        <aside class="auth-visual" aria-label="ButterCafe">
+            <div class="auth-visual-inner">
+                <img src="{% static 'images/logo.svg' %}" alt="ButterCafe" class="auth-logo">
+                <p class="auth-kicker">Личный кабинет</p>
+                <h1>Войти в ButterCafe</h1>
+                <p class="auth-copy">Сохраняйте любимые позиции, повторяйте заказы и быстрее оформляйте покупки.</p>
+                <div class="auth-benefits" aria-label="Возможности аккаунта">
+                    <span><i class="fa-solid fa-clock" aria-hidden="true"></i> История заказов</span>
+                    <span><i class="fa-solid fa-heart" aria-hidden="true"></i> Избранное меню</span>
+                    <span><i class="fa-solid fa-location-dot" aria-hidden="true"></i> Адрес по умолчанию</span>
                 </div>
-            {% endif %}
+            </div>
+        </aside>
 
-            <div class="auth-grid">
-                {% for field in form %}
-                    <div class="auth-field-row">
-                        <label for="{{ field.id_for_label }}" class="auth-field-label">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                            <div class="auth-field-errors">
-                                {% for error in field.errors %}
-                                    <p class="auth-error-item">{{ error }}</p>
-                                {% endfor %}
+        <div class="auth-card auth-form-card">
+            <div class="auth-card-head">
+                <p class="auth-kicker">С возвращением</p>
+                <h2 class="auth-title">Вход</h2>
+            </div>
+            <form method="post" action="{% url 'account_login' %}" class="auth-form">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <div class="auth-errors">
+                        {% for error in form.non_field_errors %}
+                            <p class="auth-error-item">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="auth-grid">
+                    {% for field in form %}
+                        {% if field.field.widget.input_type == 'checkbox' %}
+                            <div class="auth-check-row">
+                                {{ field }}
+                                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            </div>
+                            {% if field.errors %}
+                                <div class="auth-field-errors">
+                                    {% for error in field.errors %}
+                                        <p class="auth-error-item">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="auth-field-row">
+                                <label for="{{ field.id_for_label }}" class="auth-field-label">{{ field.label }}</label>
+                                <div class="auth-input-wrap">
+                                    {{ field }}
+                                </div>
+                                {% if field.errors %}
+                                    <div class="auth-field-errors">
+                                        {% for error in field.errors %}
+                                            <p class="auth-error-item">{{ error }}</p>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
                             </div>
                         {% endif %}
-                    </div>
-                {% endfor %}
-            </div>
+                    {% endfor %}
+                </div>
 
-            {% if redirect_field_value %}
-                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
-            {% endif %}
-            <button type="submit" class="order-btn auth-btn">Войти</button>
-        </form>
-        <p class="auth-note">Нет аккаунта? <a href="{% url 'account_signup' %}">Зарегистрироваться</a></p>
-    </div>
+                {% if redirect_field_value %}
+                    <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">
+                {% endif %}
+                <button type="submit" class="order-btn auth-btn">
+                    <i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i>
+                    <span>Войти</span>
+                </button>
+            </form>
+            <p class="auth-note">Нет аккаунта? <a href="{% url 'account_signup' %}">Зарегистрироваться</a></p>
+        </div>
+    </section>
 </div>
 {% endblock %}

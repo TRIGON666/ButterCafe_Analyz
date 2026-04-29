@@ -3,6 +3,7 @@
 -- Рекомендация Metabase: линейный график. X = Дата, Y = Выручка.
 SELECT DATE(created_at) AS "Дата", SUM(total) AS "Выручка"
 FROM cafe_order
+WHERE status <> 'cancelled'
 GROUP BY DATE(created_at)
 ORDER BY "Дата";
 
@@ -10,6 +11,7 @@ ORDER BY "Дата";
 -- Рекомендация Metabase: столбчатая диаграмма. X = Дата, Y = Количество заказов.
 SELECT DATE(created_at) AS "Дата", COUNT(*) AS "Количество заказов"
 FROM cafe_order
+WHERE status <> 'cancelled'
 GROUP BY DATE(created_at)
 ORDER BY "Дата";
 
@@ -17,6 +19,7 @@ ORDER BY "Дата";
 -- Рекомендация Metabase: линейный график или комбинированный график рядом с выручкой. X = Дата, Y = Средний чек.
 SELECT DATE(created_at) AS "Дата", AVG(total) AS "Средний чек"
 FROM cafe_order
+WHERE status <> 'cancelled'
 GROUP BY DATE(created_at)
 ORDER BY "Дата";
 
@@ -26,6 +29,8 @@ ORDER BY "Дата";
 SELECT p.name AS "Товар", SUM(oi.quantity * oi.price) AS "Выручка"
 FROM cafe_orderitem oi
 JOIN cafe_product p ON p.id = oi.product_id
+JOIN cafe_order o ON o.id = oi.order_id
+WHERE o.status <> 'cancelled'
 GROUP BY p.name
 ORDER BY "Выручка" DESC
 LIMIT 10;
@@ -35,6 +40,8 @@ LIMIT 10;
 SELECT p.name AS "Товар", SUM(oi.quantity) AS "Продано, шт."
 FROM cafe_orderitem oi
 JOIN cafe_product p ON p.id = oi.product_id
+JOIN cafe_order o ON o.id = oi.order_id
+WHERE o.status <> 'cancelled'
 GROUP BY p.name
 ORDER BY "Продано, шт." DESC
 LIMIT 10;
@@ -66,6 +73,7 @@ SELECT
 FROM cafe_order o
 JOIN auth_user u ON u.id = o.user_id
 WHERE o.user_id IS NOT NULL
+  AND o.status <> 'cancelled'
 GROUP BY u.username
 HAVING COUNT(o.id) > 1
 ORDER BY "Количество заказов" DESC, "Сумма покупок" DESC;
@@ -79,7 +87,7 @@ SELECT
     COUNT(o.id) AS "Частота покупок",
     SUM(o.total) AS "Сумма покупок"
 FROM auth_user u
-LEFT JOIN cafe_order o ON o.user_id = u.id
+LEFT JOIN cafe_order o ON o.user_id = u.id AND o.status <> 'cancelled'
 GROUP BY u.id, u.username;
 
 -- Дашборд 4: Время
@@ -87,6 +95,7 @@ GROUP BY u.id, u.username;
 -- Рекомендация Metabase: столбчатая диаграмма. X = Час дня, Y = Количество заказов.
 SELECT EXTRACT(HOUR FROM created_at) AS "Час дня", COUNT(*) AS "Количество заказов"
 FROM cafe_order
+WHERE status <> 'cancelled'
 GROUP BY "Час дня"
 ORDER BY "Час дня";
 
@@ -94,13 +103,17 @@ ORDER BY "Час дня";
 -- Рекомендация Metabase: столбчатая диаграмма. X = День недели, Y = Выручка.
 SELECT EXTRACT(DOW FROM created_at) AS "День недели", SUM(total) AS "Выручка"
 FROM cafe_order
+WHERE status <> 'cancelled'
 GROUP BY "День недели"
 ORDER BY "День недели";
 
 -- Дашборд 5: Операции
 -- Заказы по статусам
 -- Рекомендация Metabase: круговая диаграмма или столбчатая диаграмма. Категория = Статус, значение = Количество заказов.
-SELECT status AS "Статус", COUNT(*) AS "Количество заказов", SUM(total) AS "Выручка"
+SELECT
+    status AS "Статус",
+    COUNT(*) AS "Количество заказов",
+    SUM(CASE WHEN status <> 'cancelled' THEN total ELSE 0 END) AS "Выручка"
 FROM cafe_order
 GROUP BY status
 ORDER BY "Количество заказов" DESC;
@@ -113,6 +126,7 @@ SELECT
     SUM(total) AS "Выручка",
     AVG(total) AS "Средний чек"
 FROM cafe_order
+WHERE status <> 'cancelled'
 GROUP BY delivery_type
 ORDER BY "Количество заказов" DESC;
 
@@ -148,21 +162,24 @@ LIMIT 10;
 SELECT COALESCE(SUM(total), 0) AS "Выручка"
 FROM cafe_order
 WHERE DATE(created_at AT TIME ZONE 'Europe/Moscow') =
-      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day');
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day')
+  AND status <> 'cancelled';
 
 -- METABASE_ORDERS_CARD_ID: количество заказов за вчера
 -- Рекомендация Metabase: число.
 SELECT COUNT(*) AS "Количество заказов"
 FROM cafe_order
 WHERE DATE(created_at AT TIME ZONE 'Europe/Moscow') =
-      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day');
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day')
+  AND status <> 'cancelled';
 
 -- METABASE_AVG_CHECK_CARD_ID: средний чек за вчера
 -- Рекомендация Metabase: число.
 SELECT COALESCE(AVG(total), 0) AS "Средний чек"
 FROM cafe_order
 WHERE DATE(created_at AT TIME ZONE 'Europe/Moscow') =
-      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day');
+      ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day')
+  AND status <> 'cancelled';
 
 -- METABASE_NEW_CLIENTS_CARD_ID: новые клиенты за вчера
 -- Рекомендация Metabase: число.
@@ -181,6 +198,7 @@ JOIN cafe_product p ON p.id = oi.product_id
 JOIN cafe_order o ON o.id = oi.order_id
 WHERE DATE(o.created_at AT TIME ZONE 'Europe/Moscow') =
       ((CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')::date - INTERVAL '1 day')
+  AND o.status <> 'cancelled'
 GROUP BY p.name
 ORDER BY "Количество" DESC
 LIMIT 3;

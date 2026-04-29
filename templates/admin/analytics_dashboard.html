@@ -900,7 +900,7 @@
   const dailyRevenue = JSON.parse('{{ daily_revenue_json|escapejs }}');
   const dailyOrders = JSON.parse('{{ daily_orders_json|escapejs }}');
   const topProductLabels = JSON.parse('{{ top_product_labels_json|escapejs }}');
-  const topProductValues = JSON.parse('{{ top_product_values_json|escapejs }}');
+  const topProductValues = JSON.parse('{{ top_product_values_json|escapejs }}').map((value) => Number(value) || 0);
   const eventLabels = JSON.parse('{{ event_labels_json|escapejs }}');
   const eventValues = JSON.parse('{{ event_values_json|escapejs }}');
   const hourlyLabels = JSON.parse('{{ hourly_labels_json|escapejs }}');
@@ -975,6 +975,25 @@
     }
   };
 
+  const topProductsMax = Math.max(0, ...topProductValues);
+  const productChartOptions = {
+    ...commonOptions,
+    indexAxis: 'y',
+    scales: {
+      x: {
+        beginAtZero: true,
+        suggestedMax: topProductsMax ? Math.ceil(topProductsMax * 1.15) : 1,
+        ticks: { color: palette.text, precision: 0 },
+        grid: { color: palette.grid }
+      },
+      y: {
+        type: 'category',
+        ticks: { color: palette.text },
+        grid: { color: palette.grid }
+      }
+    }
+  };
+
   new Chart(document.getElementById('forecastChart'), {
     type: 'line',
     data: {
@@ -1035,7 +1054,7 @@
         borderRadius: 10
       }]
     },
-    options: { ...commonOptions, indexAxis: 'y' }
+    options: productChartOptions
   });
 
   new Chart(document.getElementById('eventsChart'), {
