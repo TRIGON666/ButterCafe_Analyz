@@ -16,7 +16,7 @@ from django.views.decorators.http import require_POST
 def get_cart(request):
     if not request.session.session_key:
         request.session.create()
-    cart, created = Cart.objects.get_or_create(session_key=request.session.session_key)
+    cart, _ = Cart.objects.get_or_create(session_key=request.session.session_key)
     return cart
 
 def get_cart_items_count(request):
@@ -309,7 +309,7 @@ def order_create(request):
                 'order_id': order.id,
                 'order_url': reverse('cafe:order_success', args=[order.id]),
             })
-    except Exception as e:
+    except Exception:
         logging.error("Failed to create order", exc_info=True)
         return JsonResponse({'success': False, 'errors': ['Не удалось оформить заказ. Попробуйте позже.']}, status=500)
 
@@ -417,11 +417,6 @@ def profile(request):
         'cart_items_count': get_cart_items_count(request)
     }
     return render(request, 'profile.html', context)
-
-
-
-
-
 @login_required
 def order_history(request):
     orders = Order.objects.filter(user=request.user).prefetch_related('items__product')

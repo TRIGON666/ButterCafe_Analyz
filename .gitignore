@@ -30,7 +30,12 @@ media/
 data_lake/
 private_data_lake/
 docker_data/
+backups/
+metabase-transfer/
 staticfiles/
+.pytest_cache/
+htmlcov/
+.coverage
 
 # Virtual Environment
 venv/

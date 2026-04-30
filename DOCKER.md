@@ -53,6 +53,24 @@ docker compose up --build
 http://localhost:8000
 ```
 
+Metabase будет доступен здесь:
+
+```text
+http://localhost:3000
+```
+
+Metabase хранит свои собственные данные не в H2-файле, а в PostgreSQL внутри Docker, в отдельной базе `metabase`.
+
+При первичной настройке Metabase подключите базу ButterCafe так:
+
+```text
+Host: db
+Port: 5432
+Database name: buttercafe
+Username: postgres
+Password: значение DB_PASSWORD из .env
+```
+
 Если нужен администратор:
 
 ```powershell
@@ -122,61 +140,58 @@ docker compose up -d --build
 
 ## Если нужно перенести только Metabase
 
-Можно оставить базу ButterCafe новой, а перенести только настройки Metabase: пользователей, карточки, дашборды, коллекции и embed secret. Это отдельная база самого Metabase, она не равна базе `buttercafe`.
+Можно оставить базу ButterCafe новой, а перенести только Metabase: пользователей, карточки, дашборды, коллекции и embed secret. Metabase хранит эти данные в отдельной PostgreSQL-базе `metabase` внутри Docker.
 
-Если Metabase запускался простой командой:
-
-```powershell
-docker run -d --name metabase -p 3000:3000 metabase/metabase
-```
-
-то его данные обычно лежат внутри контейнера. На старом компьютере остановите Metabase и скопируйте файл H2:
+На старом компьютере:
 
 ```powershell
-docker stop metabase
-New-Item -ItemType Directory -Force metabase-data
-docker cp metabase:/metabase.db/metabase.db.mv.db .\metabase-data\metabase.db.mv.db
+.\docker\export-metabase.ps1
 ```
 
-Скопируйте папку `metabase-data/` на новый компьютер и запустите Metabase так:
+Скрипт создаст папку:
+
+```text
+metabase-transfer/
+```
+
+Внутри будет файл:
+
+```text
+metabase.dump
+```
+
+Скопируйте на новый компьютер:
+
+```text
+metabase-transfer/
+.env
+media/              # если нужны картинки товаров
+private_data_lake/  # если нужны локальные отчёты
+```
+
+На новом компьютере положите `metabase-transfer/` в корень проекта и выполните:
 
 ```powershell
-docker run -d --name metabase -p 3000:3000 `
-  -v "${PWD}\metabase-data:/metabase-data" `
-  -e "MB_DB_TYPE=h2" `
-  -e "MB_DB_FILE=/metabase-data/metabase.db" `
-  metabase/metabase
+.\docker\import-metabase.ps1
 ```
 
-Важно: в `MB_DB_FILE` указывается путь без окончания `.mv.db`. Сам файл при этом называется `metabase.db.mv.db`.
+Скрипт восстановит дамп в PostgreSQL-базу `metabase` внутри Docker. Если в `metabase-transfer/` лежит старый H2-файл `metabase.db.mv.db`, скрипт попробует мигрировать его в PostgreSQL.
 
-После запуска откройте:
+После импорта откройте:
 
 ```text
 http://localhost:3000
 ```
 
-В `.env` проекта ButterCafe должны остаться значения Metabase со старого компьютера:
+Если дашборды открылись, но графики пустые или база недоступна, в Metabase откройте `Admin settings` -> `Databases` -> база ButterCafe и поставьте:
 
-```env
-METABASE_URL=http://localhost:3000
-METABASE_DASHBOARD_ID=...
-METABASE_EMBED_SECRET=...
-METABASE_REVENUE_CARD_ID=...
-METABASE_ORDERS_CARD_ID=...
-METABASE_AVG_CHECK_CARD_ID=...
-METABASE_NEW_CLIENTS_CARD_ID=...
-METABASE_TOP_PRODUCTS_CARD_ID=...
+```text
+Host: db
+Port: 5432
+Database name: buttercafe
+Username: postgres
+Password: значение DB_PASSWORD из .env
 ```
-
-Базу ButterCafe при этом можно не переносить. Просто запустите проект с пустой Docker-базой:
-
-```powershell
-docker compose up -d --build
-docker compose exec web python manage.py createsuperuser
-```
-
-Если карточки Metabase были построены по старой базе ButterCafe, на новой пустой базе они откроются, но данных в графиках может не быть до появления новых заказов. Если в Metabase сохранено подключение к старому хосту базы, поменяйте его в Metabase: `Admin settings` -> `Databases` -> база ButterCafe -> host `host.docker.internal` или актуальный адрес PostgreSQL.
 
 ## Частые ошибки и решения
 

@@ -1,5 +1,7 @@
 # ButterCafe
 
+Короткая инструкция по запуску и переносу проекта: [QUICKSTART.md](QUICKSTART.md).
+
 Сайт кафе ButterCafe на Django с PostgreSQL.
 
 ## Установка

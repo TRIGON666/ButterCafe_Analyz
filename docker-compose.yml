@@ -61,3 +61,33 @@ services:
       - ./private_data_lake:/app/private_data_lake
     ports:
       - "${WEB_PORT:-8000}:8000"
+
+  metabase-db-init:
+    image: postgres:16-alpine
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_USER: ${DB_USER:-postgres}
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+      METABASE_DB_NAME: ${METABASE_DB_NAME:-metabase}
+    command: >
+      sh -c 'createdb -h db -U "$$DB_USER" "$$METABASE_DB_NAME" 2>/dev/null || true;
+      echo "Metabase database is ready: $$METABASE_DB_NAME"'
+
+  metabase:
+    image: metabase/metabase:latest
+    restart: unless-stopped
+    depends_on:
+      metabase-db-init:
+        condition: service_completed_successfully
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: db
+      MB_DB_PORT: 5432
+      MB_DB_DBNAME: ${METABASE_DB_NAME:-metabase}
+      MB_DB_USER: ${DB_USER:-postgres}
+      MB_DB_PASS: ${DB_PASSWORD:-postgres}
+    ports:
+      - "${METABASE_PORT:-3000}:3000"

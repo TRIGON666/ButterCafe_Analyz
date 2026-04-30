@@ -11,8 +11,13 @@ __pycache__
 .idea
 .vscode
 docker_data
+backups
+metabase-transfer
 staticfiles
 media
 private_data_lake
 data_lake
 README.md
+.pytest_cache
+htmlcov
+.coverage
