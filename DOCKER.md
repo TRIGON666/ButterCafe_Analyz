@@ -224,6 +224,23 @@ SECURE_HSTS_SECONDS=0
 docker compose up -d --force-recreate web
 ```
 
+### Не загружаются стили или админка выглядит без CSS
+
+В Docker приложение запускается через Gunicorn, а Gunicorn сам не раздаёт Django static files. Для этого в проект добавлен WhiteNoise. После обновления проекта на другом компьютере пересоберите образ:
+
+```powershell
+docker compose down
+docker compose up -d --build
+```
+
+Проверьте, что внутри контейнера выполнился `collectstatic`:
+
+```powershell
+docker compose logs web
+```
+
+Если в браузере всё ещё старый вид без CSS, откройте страницу с жёстким обновлением: `Ctrl+F5`.
+
 ### `database files are incompatible` или PostgreSQL не стартует после копирования `docker_data`
 
 Не переносите папку `docker_data/postgres` между компьютерами. Сделайте дамп через `pg_dump` на старом компьютере и восстановите его через `pg_restore` на новом.
