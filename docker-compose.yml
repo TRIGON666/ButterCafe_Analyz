@@ -43,6 +43,8 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-False}
       CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-False}
       SECURE_HSTS_SECONDS: ${SECURE_HSTS_SECONDS:-0}
+      WHITENOISE_USE_FINDERS: ${WHITENOISE_USE_FINDERS:-True}
+      SERVE_MEDIA_FILES: ${SERVE_MEDIA_FILES:-True}
       METABASE_URL: ${METABASE_URL:-http://localhost:3000}
       METABASE_DASHBOARD_ID: ${METABASE_DASHBOARD_ID:-}
       METABASE_EMBED_SECRET: ${METABASE_EMBED_SECRET:-}
@@ -56,7 +58,6 @@ services:
       METABASE_TOP_PRODUCTS_CARD_ID: ${METABASE_TOP_PRODUCTS_CARD_ID:-}
     volumes:
       - ./media:/app/media
-      - ./staticfiles:/app/staticfiles
       - ./private_data_lake:/app/private_data_lake
     ports:
       - "${WEB_PORT:-8000}:8000"

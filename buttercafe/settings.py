@@ -165,6 +165,7 @@ STORAGES = {
         'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
     },
 }
+WHITENOISE_USE_FINDERS = env_bool('WHITENOISE_USE_FINDERS', True)
 STATICFILES_DIRS = []
 project_static_dir = BASE_DIR / 'static'
 if project_static_dir.exists():
@@ -172,6 +173,7 @@ if project_static_dir.exists():
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+SERVE_MEDIA_FILES = env_bool('SERVE_MEDIA_FILES', DEBUG)
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

@@ -233,13 +233,47 @@ docker compose down
 docker compose up -d --build
 ```
 
+В `docker-compose.yml` папка `staticfiles` не пробрасывается с Windows в контейнер. Это сделано специально: собранная статика должна жить внутри контейнера, а не зависеть от локальной Windows-папки.
+
 Проверьте, что внутри контейнера выполнился `collectstatic`:
 
 ```powershell
 docker compose logs web
 ```
 
+Быстрая проверка CSS:
+
+```powershell
+Invoke-WebRequest http://localhost:8000/static/css/style.css -UseBasicParsing
+```
+
+В ответе должен быть код `200`, а не `404`.
+
 Если в браузере всё ещё старый вид без CSS, откройте страницу с жёстким обновлением: `Ctrl+F5`.
+
+### Не загружаются картинки товаров
+
+Картинки из дизайна сайта лежат в `cafe/static/images` и попадают в Docker-образ вместе с кодом. Картинки товаров, загруженные через админку, лежат в папке `media/` и открываются по адресам `/media/...`.
+
+Для локального Docker включена раздача media-файлов через Django:
+
+```env
+SERVE_MEDIA_FILES=True
+```
+
+При переносе на другой компьютер скопируйте папку:
+
+```text
+media/
+```
+
+Проверьте конкретную картинку:
+
+```powershell
+Invoke-WebRequest http://localhost:8000/media/products/photo_2026-04-24_17-25-37.jpg -UseBasicParsing
+```
+
+В ответе должен быть код `200`. Если код `404`, значит файл не скопирован в `media/products/` или в базе указан другой путь к картинке.
 
 ### `database files are incompatible` или PostgreSQL не стартует после копирования `docker_data`
 
