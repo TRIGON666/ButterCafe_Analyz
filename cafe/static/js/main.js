@@ -278,7 +278,16 @@ function setupOrderTotals() {
     var totalPriceEl = document.getElementById('orderTotalPrice');
     if (!deliveryType || !itemsPriceEl || !deliveryPriceEl || !totalPriceEl) return;
 
-    var itemsPrice = Number(itemsPriceEl.dataset.value || itemsPriceEl.textContent || 0);
+    function parseMoney(value) {
+        var normalized = String(value || '0')
+            .replace(/\s/g, '')
+            .replace(',', '.')
+            .replace(/[^\d.-]/g, '');
+        var parsed = Number(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    var itemsPrice = parseMoney(itemsPriceEl.dataset.value || itemsPriceEl.textContent);
     var moneyFormatter = new Intl.NumberFormat('ru-RU', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
